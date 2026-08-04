@@ -39,7 +39,6 @@
 
   const modal = document.querySelector("#payment-modal");
   const modalCard = document.querySelector("#payment-modal .modal-card");
-  const notifyBtn = document.querySelector("#payment-notify");
   const aboToggle = document.querySelector("#subscription-toggle");
   if (!modal || !modalCard) return;
 
@@ -61,11 +60,9 @@
   status.style.cssText = "font-size:13px;line-height:1.5;margin:6px 0 2px;font-weight:600";
   const aboHint = document.createElement("p");
   aboHint.style.cssText = "font-size:11px;color:#75868e;margin:2px 0 0";
-  if (notifyBtn) {
-    modalCard.insertBefore(container, notifyBtn);
-    modalCard.insertBefore(status, notifyBtn);
-    modalCard.insertBefore(aboHint, notifyBtn);
-  }
+  modalCard.appendChild(container);
+  modalCard.appendChild(status);
+  modalCard.appendChild(aboHint);
 
   // Zwei SDK-Instanzen: Einmalzahlung + Abo
   loadSdk("?client-id=" + CLIENT_ID + "&currency=EUR", "ppOrders");
