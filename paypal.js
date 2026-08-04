@@ -21,6 +21,22 @@
     return c || "10.00";
   }
 
+  // Buchungsdetails aus dem Formular einsammeln, damit der Worker sie
+  // VOR der Zahlung speichern kann (fälschungssicher).
+  function collectBooking() {
+    const d = new FormData(form);
+    const selected = extras.filter((x) => x.checked).map((x) => x.value).join(", ") || "keine";
+    return {
+      bins,
+      abo: !!(abo && abo.checked),
+      extras: selected,
+      date: d.get("date"),
+      name: d.get("name"),
+      address: d.get("address"),
+      note: d.get("note") || "",
+    };
+  }
+
   const modal = document.querySelector("#payment-modal");
   const modalCard = document.querySelector("#payment-modal .modal-card");
   const notifyBtn = document.querySelector("#payment-notify");
@@ -89,7 +105,7 @@
           const res = await fetch(WORKER_URL + "/api/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: amount, description: "EcoBin Mülltonnenreinigung" }),
+            body: JSON.stringify({ amount: amount, description: "EcoBin Mülltonnenreinigung", booking: collectBooking() }),
           });
           return (await res.json()).id;
         },
@@ -99,7 +115,7 @@
             headers: { "Content-Type": "application/json" },
           });
           status.style.color = "#18553a";
-          status.textContent = "✅ Zahlung erfolgreich! Wir melden uns zur Terminbestätigung.";
+          status.textContent = "✅ Zahlung erfolgreich! Deine Buchung wurde automatisch an uns übermittelt. Wir bestätigen den Termin per E-Mail.";
         },
         onError: function (err) {
           status.style.color = "#c62828";
@@ -124,7 +140,7 @@
           const res = await fetch(WORKER_URL + "/api/subscriptions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount }),
+            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount, booking: collectBooking() }),
           });
           const sub = await res.json();
           if (!sub.id) {
@@ -139,10 +155,16 @@
           }
           return sub.id;
         },
-        onApprove: function (data) {
+        onApprove: async function (data) {
+          // Serverseitig bestätigen lassen (Worker prüft bei PayPal nach)
+          // und erst dann die Buchung automatisch per E-Mail verschicken.
+          await fetch(WORKER_URL + "/api/subscriptions/" + data.subscriptionID + "/confirm", {
+            method: "POST",
+          });
           status.style.color = "#18553a";
           status.textContent =
-            "✅ Abo aktiv! Der Betrag wird ab jetzt monatlich abgebucht. Abo-Nr.: " + data.subscriptionID;
+            "✅ Abo aktiv! Der Betrag wird ab jetzt monatlich abgebucht. Deine Buchung wurde automatisch an uns übermittelt. Abo-Nr.: " +
+            data.subscriptionID;
         },
         onError: function (err) {
           if (!status.textContent) {
