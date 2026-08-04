@@ -34,6 +34,7 @@
       name: d.get("name"),
       address: d.get("address"),
       note: d.get("note") || "",
+      email: d.get("email") || "",
     };
   }
 
