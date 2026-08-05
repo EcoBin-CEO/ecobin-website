@@ -1,0 +1,53 @@
+/* Lokal gehostete Google Fonts – kein Request mehr an fonts.googleapis.com / fonts.gstatic.com,
+   dadurch keine automatische IP-Übertragung an Google beim Seitenaufruf. */
+
+@font-face{
+  font-family:'DM Sans';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('fonts/dm-sans-v17-latin-regular.woff2') format('woff2');
+}
+@font-face{
+  font-family:'DM Sans';
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url('fonts/dm-sans-v17-latin-500.woff2') format('woff2');
+}
+@font-face{
+  font-family:'DM Sans';
+  font-style:normal;
+  font-weight:600;
+  font-display:swap;
+  src:url('fonts/dm-sans-v17-latin-600.woff2') format('woff2');
+}
+@font-face{
+  font-family:'DM Sans';
+  font-style:normal;
+  font-weight:700;
+  font-display:swap;
+  src:url('fonts/dm-sans-v17-latin-700.woff2') format('woff2');
+}
+
+@font-face{
+  font-family:'Plus Jakarta Sans';
+  font-style:normal;
+  font-weight:600;
+  font-display:swap;
+  src:url('fonts/plus-jakarta-sans-v12-latin-600.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Plus Jakarta Sans';
+  font-style:normal;
+  font-weight:700;
+  font-display:swap;
+  src:url('fonts/plus-jakarta-sans-v12-latin-700.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Plus Jakarta Sans';
+  font-style:normal;
+  font-weight:800;
+  font-display:swap;
+  src:url('fonts/plus-jakarta-sans-v12-latin-800.woff2') format('woff2');
+}
