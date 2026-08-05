@@ -26,8 +26,14 @@
   function collectBooking() {
     const d = new FormData(form);
     const selected = extras.filter((x) => x.checked).map((x) => x.value).join(", ") || "keine";
+    const otherBin = d.get("otherBinType");
+    const binTypes = d
+      .getAll("binType")
+      .map((t) => (t === "Andere Tonne" && otherBin ? `Andere Tonne (${otherBin})` : t))
+      .join(", ") || "keine Angabe";
     return {
       bins,
+      binTypes,
       abo: !!(abo && abo.checked),
       extras: selected,
       date: d.get("date"),

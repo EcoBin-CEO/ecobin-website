@@ -237,11 +237,13 @@ async function sendOrderEmail(env, { typ, orderID, amount, booking }) {
     ``,
     `PayPal-Referenz: ${orderID}`,
     `Betrag: ${amount} EUR`,
-    `Tonnen: ${b.bins ?? "-"}`,
+    `Anzahl Tonnen: ${b.bins ?? "-"}`,
+    `Ausgewählte Tonnen: ${b.binTypes || "keine Angabe"}`,
     `Abo: ${b.abo ? "Ja" : "Nein"}`,
     `Extras: ${b.extras || "keine"}`,
     `Wunschtermin: ${b.date || "-"}`,
     `Name: ${b.name || "-"}`,
+    `E-Mail des Kunden: ${b.email || "-"}`,
     `Adresse: ${b.address || "-"}`,
     `Hinweis: ${b.note || "keiner"}`,
   ].join("\n");
@@ -252,6 +254,7 @@ async function sendOrderEmail(env, { typ, orderID, amount, booking }) {
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: NOTIFY_EMAIL,
+      reply_to: b.email || undefined,
       subject: `Neue Buchung – ${typ} (${amount} €)`,
       text,
     }),
