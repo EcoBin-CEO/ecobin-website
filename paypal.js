@@ -23,16 +23,34 @@
 
   // Buchungsdetails aus dem Formular einsammeln, damit der Worker sie
   // VOR der Zahlung speichern kann (fälschungssicher).
+  const STD_BIN_QTY_FIELD = {
+    Biotonne: "binQtyBiotonne",
+    "Restmülltonne": "binQtyRestmuelltonne",
+    "Gelbe Tonne": "binQtyGelbeTonne",
+    Papiertonne: "binQtyPapiertonne",
+  };
+
   function collectBooking() {
     const d = new FormData(form);
     const selected = extras.filter((x) => x.checked).map((x) => x.value).join(", ") || "keine";
-    const otherBin = d.get("otherBinType");
-    const binTypes = d
-      .getAll("binType")
-      .map((t) => (t === "Andere Tonne" && otherBin ? `Andere Tonne (${otherBin})` : t))
-      .join(", ") || "keine Angabe";
+    const qtyNormal = Number(d.get("otherBinQtyNormal")) || 0;
+    const qtyGross = Number(d.get("otherBinQtyGross")) || 0;
+    const qtyContainer = Number(d.get("otherBinQtyContainer")) || 0;
+    const otherDescription = (d.get("otherBinDescription") || "").trim();
+    const otherParts = [];
+    if (qtyNormal) otherParts.push(`${qtyNormal}x Sonstige Tonne`);
+    if (qtyGross) otherParts.push(`${qtyGross}x Große Mülltonne (15 €/Stk.)`);
+    if (qtyContainer) otherParts.push(`${qtyContainer}x Container (30 €/Stk.)`);
+    const otherPart = otherParts.length
+      ? [`Andere Tonne: ${otherParts.join(", ")}${otherDescription ? ` – Beschreibung: ${otherDescription}` : ""}`]
+      : [];
+    const namedBinTypes = d.getAll("binType").filter((t) => t !== "Andere Tonne");
+    const namedBinQty = namedBinTypes.map((t) => Math.max(1, Number(d.get(STD_BIN_QTY_FIELD[t])) || 1));
+    const namedBinParts = namedBinTypes.map((t, i) => (namedBinQty[i] > 1 ? `${namedBinQty[i]}x ${t}` : t));
+    const binTypes = [...namedBinParts, ...otherPart].join(" | ") || "keine Angabe";
+    const namedBinCount = namedBinQty.reduce((s, n) => s + n, 0);
     return {
-      bins,
+      bins: namedBinCount + qtyNormal + qtyGross + qtyContainer,
       binTypes,
       abo: !!(abo && abo.checked),
       extras: selected,
