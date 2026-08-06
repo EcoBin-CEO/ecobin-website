@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 764 270" role="img" aria-label="EcoBin Logo">
+<title>EcoBin</title>
+<defs>
+<linearGradient id="binBody" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#5fc987"/>
+<stop offset="1" stop-color="#2f8f57"/>
+</linearGradient>
+<linearGradient id="binLid" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#3a9f63"/>
+<stop offset="1" stop-color="#1c6b3f"/>
+</linearGradient>
+<linearGradient id="ecoText" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="#4fae72"/>
+<stop offset="1" stop-color="#1c6b3f"/>
+</linearGradient>
+</defs>
+<g transform="translate(6,4)">
+<ellipse cx="82" cy="248" rx="62" ry="8" fill="#0c3a20" opacity=".14"/>
+<circle cx="45" cy="232" r="13" fill="#1c6b3f"/>
+<circle cx="119" cy="232" r="13" fill="#1c6b3f"/>
+<path d="M22,58 L142,58 L131,222 Q130,234 118,234 L46,234 Q34,234 33,222 Z" fill="url(#binBody)"/>
+<path d="M120,58 L142,58 L131,222 Q130,234 118,234 L112,234 L120,222 Z" fill="#155c37" opacity=".55"/>
+<path d="M44,86 C56,120 56,168 46,214" stroke="#1c6b3f" stroke-width="3" opacity=".45" fill="none" stroke-linecap="round"/>
+<path d="M82,84 L80,222" stroke="#1c6b3f" stroke-width="3" opacity=".45" stroke-linecap="round"/>
+<path d="M120,86 C108,120 108,168 118,214" stroke="#1c6b3f" stroke-width="3" opacity=".45" fill="none" stroke-linecap="round"/>
+<rect x="18" y="30" width="128" height="40" rx="14" fill="url(#binLid)"/>
+<rect x="98" y="8" width="34" height="26" rx="7" fill="#134d31" transform="rotate(-9 115 21)"/>
+<path d="M82,120 C56,120 42,140 44,166 C70,166 84,150 82,120Z" fill="#bce56a"/>
+<path d="M82,120 C60,132 52,150 50,164" stroke="#4fae72" stroke-width="3" fill="none" stroke-linecap="round"/>
+<path d="M164,30 L172,52 L194,60 L172,68 L164,90 L156,68 L134,60 L156,52 Z" fill="#f2b632"/>
+</g>
+<text x="220" y="185" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-weight="800" font-size="118" letter-spacing="-3" fill="url(#ecoText)">Eco</text>
+<text x="450" y="185" font-family="'Plus Jakarta Sans','Segoe UI',Arial,sans-serif" font-weight="800" font-size="118" letter-spacing="-3" fill="#1670b5">Bin</text>
+</svg>
