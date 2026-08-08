@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>EcoBin – Admin</title>
+<style>
+  :root{
+    --green:#1f7a55; --green-dark:#18553a; --lime:#c8e6a0;
+    --navy:#092d4b; --muted:#75868e; --bg:#f4f7f6; --line:#dfe6e3;
+    --danger:#c62828; --danger-bg:#fdecea;
+    --ok-bg:#eaf7ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--navy)}
+  header{background:#fff;border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+  header h1{font-size:17px;margin:0}
+  header b{color:var(--green-dark)}
+  #logout-btn{border:1px solid var(--line);background:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--muted)}
+  main{max-width:960px;margin:0 auto;padding:20px}
+  .tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .tab-btn{border:1px solid var(--line);background:#fff;padding:9px 16px;border-radius:20px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+  .tab-btn.active{background:var(--green-dark);border-color:var(--green-dark);color:#fff}
+  .count-badge{display:inline-block;background:var(--danger);color:#fff;font-size:10px;border-radius:10px;padding:1px 6px;margin-left:6px}
+  section.view{display:none}
+  section.view.active{display:block}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:box-shadow .15s}
+  .card:hover{box-shadow:0 2px 10px #00000014}
+  .card-row{display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .card-row b{font-size:15px}
+  .card-meta{color:var(--muted);font-size:12px;margin-top:4px}
+  .status-pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap}
+  .status-pending{background:#fff4e0;color:#9a6700}
+  .status-accepted{background:var(--ok-bg);color:var(--green-dark)}
+  .status-rejected{background:var(--danger-bg);color:var(--danger)}
+  .price{font-weight:700;color:var(--green-dark)}
+  .empty{color:var(--muted);text-align:center;padding:40px 10px}
+  /* Login */
+  #login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center}
+  .login-box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:32px;max-width:340px;width:100%}
+  .login-box h2{margin:0 0 6px;font-size:19px}
+  .login-box p{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .login-box input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px}
+  .login-box button{width:100%;padding:11px;border:0;border-radius:8px;background:var(--green-dark);color:#fff;font-weight:700;cursor:pointer;font-size:14px}
+  .login-error{color:var(--danger);font-size:12px;margin:0 0 10px;display:none}
+  /* Detail modal */
+  .modal-overlay{position:fixed;inset:0;background:#092d4bcc;display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+  .modal-overlay.open{display:flex}
+  .modal-box{background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:88vh;overflow:auto;padding:24px}
+  .modal-box h3{margin:0 0 4px;font-size:19px}
+  .detail-row{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding:9px 0;font-size:13px}
+  .detail-row span:first-child{color:var(--muted)}
+  .detail-row span:last-child{text-align:right;font-weight:600;max-width:60%}
+  .modal-actions{display:flex;gap:10px;margin-top:18px}
+  .modal-actions button{flex:1;padding:12px;border-radius:8px;border:0;font-weight:700;cursor:pointer;font-size:13px}
+  .btn-accept{background:var(--green-dark);color:#fff}
+  .btn-reject{background:#fff;border:1px solid var(--danger)!important;color:var(--danger)}
+  .btn-close{margin-top:10px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-size:12px}
+  .action-msg{font-size:12px;margin-top:10px;display:none;padding:8px 10px;border-radius:6px}
+  .action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
+  .action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
+  .refund-hint{font-size:11px;color:var(--danger);background:var(--danger-bg);padding:8px 10px;border-radius:6px;margin-top:12px;line-height:1.5}
+  /* Kalender */
+  .cal-day{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px}
+  .cal-day-date{font-weight:800;color:var(--green-dark);font-size:13px;margin-bottom:6px}
+  .cal-entry{font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+  .cal-entry:first-of-type{border-top:0}
+  .loading{text-align:center;color:var(--muted);padding:30px}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h2>EcoBin Admin</h2>
+    <p>Bitte Admin-Token eingeben, um Buchungen zu verwalten.</p>
+    <p class="login-error" id="login-error">Falsches Token. Bitte erneut versuchen.</p>
+    <input type="password" id="login-token" placeholder="Admin-Token" autocomplete="off">
+    <button id="login-btn">Anmelden</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>EcoBin <b>Admin</b></h1>
+    <button id="logout-btn">Abmelden</button>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="pending">Ausstehend<span class="count-badge" id="pending-count" hidden>0</span></button>
+      <button class="tab-btn" data-tab="calendar">Kalender</button>
+      <button class="tab-btn" data-tab="all">Alle Buchungen</button>
+    </div>
+
+    <section class="view active" id="view-pending">
+      <div id="pending-list" class="loading">Lädt …</div>
+    </section>
+
+    <section class="view" id="view-calendar">
+      <div id="calendar-list" class="loading">Lädt …</div>
+    </section>
+
+    <section class="view" id="view-all">
+      <div id="all-list" class="loading">Lädt …</div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-overlay" id="detail-overlay">
+  <div class="modal-box" id="detail-box"></div>
+</div>
+
+<script>
+(function () {
+  const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
+  let token = sessionStorage.getItem("ecobin_admin_token") || "";
+
+  const loginScreen = document.getElementById("login-screen");
+  const app = document.getElementById("app");
+  const loginBtn = document.getElementById("login-btn");
+  const loginInput = document.getElementById("login-token");
+  const loginError = document.getElementById("login-error");
+  const overlay = document.getElementById("detail-overlay");
+  const detailBox = document.getElementById("detail-box");
+
+  function statusLabel(s) {
+    return { pending: "Ausstehend", accepted: "Angenommen", rejected: "Abgelehnt" }[s] || s;
+  }
+  function formatDate(d) {
+    if (!d) return "-";
+    try { return new Date(d + "T00:00:00").toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" }); }
+    catch (_) { return d; }
+  }
+  function formatPrice(a) {
+    if (a === null || a === undefined || a === "") return "-";
+    return String(a).replace(".", ",") + " €";
+  }
+  function escapeHtml(str) {
+    return String(str || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(WORKER_URL + path, Object.assign({}, opts, {
+      headers: Object.assign({ "Authorization": "Bearer " + token }, (opts && opts.headers) || {}),
+    }));
+    if (res.status === 401) {
+      sessionStorage.removeItem("ecobin_admin_token");
+      showLogin(true);
+      throw new Error("Nicht autorisiert");
+    }
+    return res.json();
+  }
+
+  function showLogin(withError) {
+    app.style.display = "none";
+    loginScreen.style.display = "flex";
+    loginError.style.display = withError ? "block" : "none";
+  }
+  function showApp() {
+    loginScreen.style.display = "none";
+    app.style.display = "block";
+    loadPending();
+  }
+
+  loginBtn.addEventListener("click", async () => {
+    const val = loginInput.value.trim();
+    if (!val) return;
+    token = val;
+    try {
+      const test = await api("/api/admin/bookings?status=pending");
+      if (Array.isArray(test)) {
+        sessionStorage.setItem("ecobin_admin_token", token);
+        showApp();
+      }
+    } catch (e) {
+      loginError.style.display = "block";
+    }
+  });
+  loginInput.addEventListener("keydown", (e) => { if (e.key === "Enter") loginBtn.click(); });
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    sessionStorage.removeItem("ecobin_admin_token");
+    token = "";
+    showLogin(false);
+  });
+
+  // Tabs
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      document.getElementById("view-" + tab).classList.add("active");
+      if (tab === "pending") loadPending();
+      if (tab === "calendar") loadCalendar();
+      if (tab === "all") loadAll();
+    });
+  });
+
+  function bookingCardHtml(b) {
+    return (
+      '<div class="card" data-id="' + escapeHtml(b.id) + '">' +
+      '<div class="card-row"><b>' + escapeHtml(b.name || "Unbekannt") + '</b>' +
+      '<span class="status-pill status-' + b.status + '">' + statusLabel(b.status) + "</span></div>" +
+      '<div class="card-meta">' + formatDate(b.date) + " · " + (b.bins ?? "?") + " Tonnen · " +
+      '<span class="price">' + formatPrice(b.amount) + "</span>" +
+      (b.abo ? " · Monatsabo" : "") + "</div></div>"
+    );
+  }
+
+  async function loadPending() {
+    const el = document.getElementById("pending-list");
+    el.innerHTML = '<div class="loading">Lädt …</div>';
+    try {
+      const list = await api("/api/admin/bookings?status=pending");
+      const badge = document.getElementById("pending-count");
+      if (list.length) { badge.hidden = false; badge.textContent = list.length; } else { badge.hidden = true; }
+      el.innerHTML = list.length ? list.map(bookingCardHtml).join("") : '<p class="empty">Keine ausstehenden Buchungen.</p>';
+      el.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openDetail(c.dataset.id)));
+    } catch (e) { el.innerHTML = '<p class="empty">Fehler beim Laden.</p>'; }
+  }
+
+  async function loadAll() {
+    const el = document.getElementById("all-list");
+    el.innerHTML = '<div class="loading">Lädt …</div>';
+    try {
+      const list = await api("/api/admin/bookings?status=all");
+      el.innerHTML = list.length ? list.map(bookingCardHtml).join("") : '<p class="empty">Noch keine Buchungen.</p>';
+      el.querySelectorAll(".card").forEach((c) => c.addEventListener("click", () => openDetail(c.dataset.id)));
+    } catch (e) { el.innerHTML = '<p class="empty">Fehler beim Laden.</p>'; }
+  }
+
+  async function loadCalendar() {
+    const el = document.getElementById("calendar-list");
+    el.innerHTML = '<div class="loading">Lädt …</div>';
+    try {
+      const list = await api("/api/admin/bookings?status=accepted");
+      if (!list.length) { el.innerHTML = '<p class="empty">Keine angenommenen Termine.</p>'; return; }
+      list.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      const byDate = {};
+      list.forEach((b) => { (byDate[b.date || "Ohne Datum"] = byDate[b.date || "Ohne Datum"] || []).push(b); });
+      el.innerHTML = Object.keys(byDate).map((date) => {
+        const entries = byDate[date].map((b) =>
+          '<div class="cal-entry" data-id="' + escapeHtml(b.id) + '" style="cursor:pointer"><b>' + escapeHtml(b.name || "-") +
+          "</b> · " + (b.bins ?? "?") + " Tonnen" + (b.address ? " · " + escapeHtml(b.address) : "") + "</div>"
+        ).join("");
+        return '<div class="cal-day"><div class="cal-day-date">' + formatDate(date) + "</div>" + entries + "</div>";
+      }).join("");
+      el.querySelectorAll(".cal-entry").forEach((c) => c.addEventListener("click", () => openDetail(c.dataset.id)));
+    } catch (e) { el.innerHTML = '<p class="empty">Fehler beim Laden.</p>'; }
+  }
+
+  async function openDetail(id) {
+    detailBox.innerHTML = '<div class="loading">Lädt …</div>';
+    overlay.classList.add("open");
+    try {
+      const b = await api("/api/admin/bookings/" + encodeURIComponent(id));
+      if (b.error) { detailBox.innerHTML = "<p>" + escapeHtml(b.error) + "</p>"; return; }
+      renderDetail(b);
+    } catch (e) { detailBox.innerHTML = "<p>Fehler beim Laden.</p>"; }
+  }
+
+  function renderDetail(b) {
+    const rows = [
+      ["Name", b.name], ["E-Mail", b.email], ["Adresse", b.address],
+      ["Wunschtermin", formatDate(b.date)], ["Tonnen", b.binTypes], ["Anzahl Tonnen", b.bins],
+      ["Extras", b.extras], ["Monatsabo", b.abo ? "Ja" : "Nein"], ["Preis", formatPrice(b.amount)],
+      ["Hinweis", b.note || "-"], ["Status", statusLabel(b.status)], ["PayPal-Referenz", b.paypalRef],
+    ];
+    const rowsHtml = rows.map(([k, v]) =>
+      '<div class="detail-row"><span>' + k + '</span><span>' + escapeHtml(v || "-") + "</span></div>"
+    ).join("");
+
+    let actionsHtml = "";
+    if (b.status === "pending") {
+      actionsHtml =
+        '<div class="modal-actions">' +
+        '<button class="btn-accept" id="btn-accept">Annehmen</button>' +
+        '<button class="btn-reject" id="btn-reject">Ablehnen</button>' +
+        "</div>" +
+        '<p class="refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Ablehnen“ verschickt nur eine Info-E-Mail an den Kunden – eine Rückerstattung erfolgt NICHT automatisch. Bei Ablehnung ggf. manuell im PayPal-Konto erstatten.</p>' +
+        '<p class="action-msg" id="action-msg"></p>';
+    }
+
+    detailBox.innerHTML =
+      '<h3>' + escapeHtml(b.name || "Buchung") + "</h3>" +
+      '<span class="status-pill status-' + b.status + '">' + statusLabel(b.status) + "</span>" +
+      '<div style="margin-top:14px">' + rowsHtml + "</div>" +
+      actionsHtml +
+      '<button class="btn-close" id="btn-close">Schließen</button>';
+
+    document.getElementById("btn-close").addEventListener("click", () => overlay.classList.remove("open"));
+
+    const acceptBtn = document.getElementById("btn-accept");
+    const rejectBtn = document.getElementById("btn-reject");
+    if (acceptBtn) acceptBtn.addEventListener("click", () => decide(b.id, "accept", acceptBtn, rejectBtn));
+    if (rejectBtn) rejectBtn.addEventListener("click", () => decide(b.id, "reject", acceptBtn, rejectBtn));
+  }
+
+  async function decide(id, action, acceptBtn, rejectBtn) {
+    acceptBtn.disabled = true; rejectBtn.disabled = true;
+    const msg = document.getElementById("action-msg");
+    try {
+      const res = await api("/api/admin/bookings/" + encodeURIComponent(id) + "/" + action, { method: "POST" });
+      if (res.error) {
+        msg.className = "action-msg error"; msg.textContent = res.error;
+        acceptBtn.disabled = false; rejectBtn.disabled = false;
+        return;
+      }
+      msg.className = "action-msg ok";
+      msg.textContent = action === "accept" ? "Buchung angenommen – Bestätigungs-E-Mail wurde verschickt." : "Buchung abgelehnt – Info-E-Mail wurde verschickt.";
+      setTimeout(() => {
+        overlay.classList.remove("open");
+        loadPending(); loadCalendar(); loadAll();
+      }, 900);
+    } catch (e) {
+      msg.className = "action-msg error"; msg.textContent = "Fehler – bitte erneut versuchen.";
+      acceptBtn.disabled = false; rejectBtn.disabled = false;
+    }
+  }
+
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("open"); });
+
+  // Start
+  if (token) {
+    api("/api/admin/bookings?status=pending").then(() => showApp()).catch(() => showLogin(false));
+  } else {
+    showLogin(false);
+  }
+})();
+</script>
+</body>
+</html>
