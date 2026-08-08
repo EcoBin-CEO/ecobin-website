@@ -56,6 +56,8 @@
   .modal-actions button{flex:1;padding:12px;border-radius:8px;border:0;font-weight:700;cursor:pointer;font-size:13px}
   .btn-accept{background:var(--green-dark);color:#fff}
   .btn-reject{background:#fff;border:1px solid var(--danger)!important;color:var(--danger)}
+  .btn-manual{margin-top:10px;width:100%;padding:11px;border-radius:8px;border:1px solid var(--green-dark);background:#fff;color:var(--green-dark);cursor:pointer;font-size:12px;font-weight:700}
+  .manual-hint{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5}
   .btn-close{margin-top:10px;width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;font-size:12px}
   .action-msg{font-size:12px;margin-top:10px;display:none;padding:8px 10px;border-radius:6px}
   .action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
@@ -262,6 +264,33 @@
     } catch (e) { detailBox.innerHTML = "<p>Fehler beim Laden.</p>"; }
   }
 
+  function buildMailto(b, kind) {
+    const subject = kind === "accept" ? "Ihre EcoBin-Buchung wurde bestätigt" : "Ihre EcoBin-Buchungsanfrage";
+    let lines;
+    if (kind === "accept") {
+      lines = [
+        "Hallo " + (b.name || "") + ",", "",
+        "deine EcoBin-Buchung wurde bestätigt.", "",
+        "Termin: " + formatDate(b.date),
+        "Tonnen: " + (b.binTypes || "-"),
+        b.extras && b.extras !== "keine" ? "Extras: " + b.extras : null,
+        "Art: " + (b.abo ? "Monatsabo" : "Einmalige Reinigung"),
+        "Preis: " + formatPrice(b.amount),
+        "Adresse: " + (b.address || "-"), "",
+        "Wir freuen uns auf den Termin!",
+        "Dein EcoBin-Team",
+      ].filter((l) => l !== null);
+    } else {
+      lines = [
+        "Hallo " + (b.name || "") + ",", "",
+        "leider können wir deine angefragte Buchung (Wunschtermin: " + formatDate(b.date) + ") so nicht bestätigen.",
+        "Bitte melde dich gerne bei uns, damit wir gemeinsam einen passenden Termin finden.", "",
+        "Dein EcoBin-Team",
+      ];
+    }
+    return "mailto:" + encodeURIComponent(b.email || "") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(lines.join("\n"));
+  }
+
   function renderDetail(b) {
     const rows = [
       ["Name", b.name], ["E-Mail", b.email], ["Adresse", b.address],
@@ -282,6 +311,13 @@
         "</div>" +
         '<p class="refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Ablehnen“ verschickt nur eine Info-E-Mail an den Kunden – eine Rückerstattung erfolgt NICHT automatisch. Bei Ablehnung ggf. manuell im PayPal-Konto erstatten.</p>' +
         '<p class="action-msg" id="action-msg"></p>';
+    } else if ((b.status === "accepted" || b.status === "rejected") && b.email) {
+      const kind = b.status === "accepted" ? "accept" : "reject";
+      const label = b.status === "accepted" ? "Bestätigungs-Mail manuell öffnen" : "Absage-Mail manuell öffnen";
+      actionsHtml =
+        '<a class="btn-manual" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box" href="' +
+        buildMailto(b, kind) + '">' + label + "</a>" +
+        '<p class="manual-hint">Öffnet dein E-Mail-Programm mit fertig ausgefülltem Empfänger, Betreff und Text – nützlich, solange der automatische Versand an Kunden noch nicht eingerichtet ist.</p>';
     }
 
     detailBox.innerHTML =
@@ -309,12 +345,10 @@
         acceptBtn.disabled = false; rejectBtn.disabled = false;
         return;
       }
-      msg.className = "action-msg ok";
-      msg.textContent = action === "accept" ? "Buchung angenommen – Bestätigungs-E-Mail wurde verschickt." : "Buchung abgelehnt – Info-E-Mail wurde verschickt.";
-      setTimeout(() => {
-        overlay.classList.remove("open");
-        loadPending(); loadCalendar(); loadAll();
-      }, 900);
+      loadPending(); loadCalendar(); loadAll();
+      // Aktualisierte Buchung erneut anzeigen -> zeigt jetzt den
+      // "E-Mail manuell öffnen"-Button (siehe renderDetail).
+      openDetail(id);
     } catch (e) {
       msg.className = "action-msg error"; msg.textContent = "Fehler – bitte erneut versuchen.";
       acceptBtn.disabled = false; rejectBtn.disabled = false;
