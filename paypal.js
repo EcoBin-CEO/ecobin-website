@@ -1,20 +1,24 @@
 /* ============================================================
-   EcoBin – PayPal (Einmalzahlung + echtes Monatsabo)  · SANDBOX
+   EcoBin – PayPal (Einmalzahlung + echtes Monatsabo)
    ------------------------------------------------------------
    - Ohne "Monatsabo": normale Einmalzahlung.
    - Mit "Monatsabo":  echtes Abo – PayPal bucht den angezeigten
-     Betrag automatisch JEDEN MONAT ab (inkl. Extras).
-   Das Abo wird jetzt serverseitig im Worker angelegt, damit
-   echte Fehlermeldungen sichtbar sind.
+     Betrag automatisch JEDEN MONAT ab (inkl. Extras), bis der
+     Kunde über seinen persönlichen Verwaltungslink kündigt.
 
-   PLAN_ID unten = die P-... aus /api/setup-plan.
+   CLIENT_ID und PLAN_ID werden jetzt vom Worker geladen
+   (GET /api/config), damit beim Wechsel zwischen PayPal-Sandbox
+   und Live nur die Worker-Umgebungsvariablen geändert werden
+   müssen – nicht der Frontend-Code.
    ============================================================ */
 
 (function () {
-  const CLIENT_ID =
-    "AU2qqQnyPxHtGqlxyl3NfxVFgw45TIV6fJ2st4uvJnnWpiz7EBX_SAdfWUPjZUeB8J-nYRwwGB9I2A89";
   const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
-  const PLAN_ID = "P-90T343477J8853541NJYZCPQ"; // <-- P-... aus /api/setup-plan
+  // Fallback-Werte, falls /api/config kurzzeitig nicht erreichbar ist
+  // (z. B. Worker startet gerade neu). Sobald /api/config antwortet,
+  // werden diese Werte überschrieben.
+  let CLIENT_ID = "AU2qqQnyPxHtGqlxyl3NfxVFgw45TIV6fJ2st4uvJnnWpiz7EBX_SAdfWUPjZUeB8J-nYRwwGB9I2A89";
+  let PLAN_ID = "P-90T343477J8853541NJYZCPQ";
 
   function amountFromText(text) {
     const c = (text || "").replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", ".");
@@ -89,9 +93,23 @@
   modalCard.appendChild(status);
   modalCard.appendChild(aboHint);
 
-  // Zwei SDK-Instanzen: Einmalzahlung + Abo
-  loadSdk("?client-id=" + CLIENT_ID + "&currency=EUR", "ppOrders");
-  loadSdk("?client-id=" + CLIENT_ID + "&currency=EUR&vault=true&intent=subscription", "ppSubs");
+  // Konfiguration (Client-ID / Plan-ID) vom Worker laden – Sandbox/Live
+  // wird dort zentral über Umgebungsvariablen gesteuert.
+  const configReady = fetch(WORKER_URL + "/api/config")
+    .then((r) => r.json())
+    .then((cfg) => {
+      if (cfg.clientId) CLIENT_ID = cfg.clientId;
+      if (cfg.planId) PLAN_ID = cfg.planId;
+    })
+    .catch(() => {
+      // Fallback-Werte oben werden verwendet
+    });
+
+  // Zwei SDK-Instanzen: Einmalzahlung + Abo (erst nach Konfig-Ladeversuch)
+  configReady.finally(() => {
+    loadSdk("?client-id=" + CLIENT_ID + "&currency=EUR", "ppOrders");
+    loadSdk("?client-id=" + CLIENT_ID + "&currency=EUR&vault=true&intent=subscription", "ppSubs");
+  });
   function loadSdk(query, ns) {
     const s = document.createElement("script");
     s.src = "https://www.paypal.com/sdk/js" + query;
@@ -151,7 +169,7 @@
   function renderSubscription() {
     if (!PLAN_ID || PLAN_ID.indexOf("P-") !== 0) {
       status.style.color = "#c62828";
-      status.textContent = "⚠️ Abo noch nicht eingerichtet: bitte PLAN_ID in paypal.js einfügen.";
+      status.textContent = "⚠️ Abo noch nicht eingerichtet: bitte PAYPAL_PLAN_ID im Worker hinterlegen.";
       return;
     }
     if (!window.ppSubs) return void setTimeout(renderSubscription, 300);
@@ -180,13 +198,15 @@
         onApprove: async function (data) {
           // Serverseitig bestätigen lassen (Worker prüft bei PayPal nach)
           // und erst dann die Buchung automatisch per E-Mail verschicken.
-          await fetch(WORKER_URL + "/api/subscriptions/" + data.subscriptionID + "/confirm", {
+          const res = await fetch(WORKER_URL + "/api/subscriptions/" + data.subscriptionID + "/confirm", {
             method: "POST",
           });
+          const result = await res.json().catch(() => ({}));
           status.style.color = "#18553a";
           status.textContent =
             "✅ Abo aktiv! Der Betrag wird ab jetzt monatlich abgebucht. Deine Buchung wurde automatisch an uns übermittelt. Abo-Nr.: " +
             data.subscriptionID;
+          if (result.manageToken) showManageLink(result.manageToken);
         },
         onError: function (err) {
           if (!status.textContent) {
@@ -196,5 +216,31 @@
         },
       })
       .render("#paypal-button-container");
+  }
+
+  // Zeigt dem Kunden direkt nach Abo-Abschluss seinen persönlichen,
+  // sicheren Verwaltungslink (Status ansehen / kündigen) an.
+  function showManageLink(manageToken) {
+    const url = new URL(location.href);
+    url.search = "";
+    url.searchParams.set("manage", manageToken);
+    const manageUrl = url.toString();
+
+    const box = document.createElement("div");
+    box.style.cssText =
+      "margin-top:14px;padding:12px 14px;background:#f4fbf7;border:1px solid #bddbd2;border-radius:8px;font-size:12px;line-height:1.6";
+    box.innerHTML =
+      '<b style="display:block;margin-bottom:4px">Dein Verwaltungslink (Status ansehen / Abo kündigen):</b>' +
+      '<input type="text" readonly style="width:100%;box-sizing:border-box;padding:7px 8px;font-size:11px;border:1px solid #bddbd2;background:#fff" value="' +
+      manageUrl.replace(/"/g, "&quot;") +
+      '">' +
+      '<button type="button" style="margin-top:8px;padding:7px 12px;font-size:11px;border:1px solid #18553a;background:#fff;color:#18553a;cursor:pointer;border-radius:6px">In Zwischenablage kopieren</button>' +
+      '<p style="margin:8px 0 0;color:#75868e">Bitte speichere diesen Link – nur damit kannst du dein Abo später selbst verwalten oder kündigen. Wir haben dir außerdem, falls möglich, eine E-Mail mit diesem Link geschickt.</p>';
+    modalCard.appendChild(box);
+    box.querySelector("button").addEventListener("click", () => {
+      navigator.clipboard?.writeText(manageUrl).then(() => {
+        box.querySelector("button").textContent = "Kopiert ✓";
+      });
+    });
   }
 })();
