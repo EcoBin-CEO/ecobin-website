@@ -69,7 +69,15 @@
   const modal = document.querySelector("#payment-modal");
   const modalCard = document.querySelector("#payment-modal .modal-card");
   const aboToggle = document.querySelector("#subscription-toggle");
+  const modalHeading = modalCard ? modalCard.querySelector("h3") : null;
   if (!modal || !modalCard) return;
+
+  // Nach erfolgreicher Zahlung: Button verstecken (kein Doppelklick mehr
+  // möglich) und Überschrift von "Fast geschafft." auf "Fertig." ändern.
+  function markPaymentDone() {
+    container.style.display = "none";
+    if (modalHeading) modalHeading.textContent = "Fertig.";
+  }
 
   // Alte Platzhalter-Zeilen ("Verbindung erforderlich") entfernen
   modalCard.querySelectorAll(".payment-method").forEach((el) => el.remove());
@@ -125,7 +133,10 @@
 
   function renderForCurrentChoice() {
     container.innerHTML = "";
+    container.style.display = "";
     status.textContent = "";
+    if (modalHeading) modalHeading.textContent = "Fast geschafft.";
+    modalCard.querySelectorAll(".manage-link-box").forEach((el) => el.remove());
     if (aboToggle && aboToggle.checked) {
       aboHint.textContent = "Monatsabo: Dieser Betrag wird automatisch jeden Monat abgebucht, bis du kündigst.";
       renderSubscription();
@@ -156,6 +167,7 @@
           });
           status.style.color = "#18553a";
           status.textContent = "✅ Zahlung erfolgreich! Deine Buchung wurde automatisch an uns übermittelt. Wir bestätigen den Termin per E-Mail.";
+          markPaymentDone();
         },
         onError: function (err) {
           status.style.color = "#c62828";
@@ -206,6 +218,7 @@
           status.textContent =
             "✅ Abo aktiv! Der Betrag wird ab jetzt monatlich abgebucht. Deine Buchung wurde automatisch an uns übermittelt. Abo-Nr.: " +
             data.subscriptionID;
+          markPaymentDone();
           if (result.manageToken) showManageLink(result.manageToken);
         },
         onError: function (err) {
@@ -227,6 +240,7 @@
     const manageUrl = url.toString();
 
     const box = document.createElement("div");
+    box.className = "manage-link-box";
     box.style.cssText =
       "margin-top:14px;padding:12px 14px;background:#f4fbf7;border:1px solid #bddbd2;border-radius:8px;font-size:12px;line-height:1.6";
     box.innerHTML =
