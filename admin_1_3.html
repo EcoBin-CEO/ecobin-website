@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>EcoBin – Verwaltung</title>
+<style>
+  :root{
+    --green:#1f7a55; --green-dark:#18553a; --lime:#c8e6a0;
+    --navy:#092d4b; --navy-2:#0d3a5f; --muted:#75868e; --bg:#f6f5ef; --line:#e3e2d8;
+    --danger:#c62828; --danger-bg:#fdecea; --ok-bg:#eaf7ef;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--navy)}
+  a{color:inherit}
+  button{font-family:inherit}
+
+  /* ---------- Login ---------- */
+  #login-screen{min-height:100vh;display:flex}
+  .login-left{flex:1;background:var(--navy);color:#fff;position:relative;overflow:hidden;padding:40px;display:flex;flex-direction:column;min-height:100vh}
+  .login-left .wave{position:absolute;left:0;right:0;bottom:0;height:160px;background:var(--green-dark);border-radius:50% 50% 0 0/100px 100px 0 0;transform:scale(1.6);opacity:.9}
+  .back-link{font-size:13px;color:#cfe0e8;text-decoration:none;opacity:.8}
+  .back-link:hover{opacity:1}
+  .login-logo{display:flex;align-items:center;gap:10px;margin-top:60px}
+  .login-logo .mark{width:34px;height:34px;border-radius:9px;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .login-logo b{font-size:19px}
+  .login-hero{margin-top:auto;position:relative;z-index:2;max-width:420px}
+  .login-hero h1{font-size:32px;line-height:1.2;margin:0 0 14px}
+  .login-hero h1 span{color:var(--lime)}
+  .login-hero p{color:#cfe0e8;font-size:14px;margin:0 0 30px}
+
+  .login-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;background:var(--bg)}
+  .login-form{max-width:340px;width:100%}
+  .eyebrow{color:var(--green);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .login-form h2{font-size:26px;margin:6px 0 6px;color:var(--navy)}
+  .login-form>p{color:var(--muted);font-size:13px;margin:0 0 26px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px}
+  .field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+  .field input:focus{outline:2px solid var(--green);outline-offset:1px}
+  #login-btn{width:100%;padding:13px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;cursor:pointer;font-size:14px;margin-top:6px}
+  #login-btn:disabled{opacity:.6;cursor:default}
+  .login-error{color:var(--danger);background:var(--danger-bg);border-radius:8px;padding:9px 12px;font-size:12.5px;margin:0 0 14px;display:none}
+
+  /* ---------- App shell ---------- */
+  #app{display:none;min-height:100vh}
+  .shell{display:flex;min-height:100vh}
+  .sidebar{width:230px;flex-shrink:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;padding:20px 14px}
+  .sb-logo{display:flex;align-items:center;gap:10px;padding:6px 8px 22px}
+  .sb-logo .mark{width:30px;height:30px;border-radius:8px;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .sb-logo .name{font-weight:800;font-size:15px;line-height:1.15}
+  .sb-logo .sub{font-size:9.5px;letter-spacing:.08em;color:#9fb3c2;text-transform:uppercase}
+  nav.sb-nav{display:flex;flex-direction:column;gap:3px}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:#cfe0e8;text-decoration:none;font-size:13.5px;font-weight:600;cursor:pointer;border:0;background:none;text-align:left;width:100%}
+  .sb-item .ic{width:18px;text-align:center}
+  .sb-item:hover{background:#ffffff14}
+  .sb-item.active{background:var(--green);color:#fff}
+  .sb-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;border-radius:9px;padding:1px 7px;font-weight:700}
+  .sb-footer{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #ffffff1f}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--lime);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0}
+  .sb-footer .who{flex:1;min-width:0}
+  .sb-footer .who b{display:block;font-size:12.5px}
+  .sb-footer .who span{display:block;font-size:10.5px;color:#9fb3c2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sb-footer button{background:none;border:0;color:#9fb3c2;cursor:pointer;font-size:15px;padding:4px}
+  .sb-footer button:hover{color:#fff}
+
+  .main-wrap{flex:1;min-width:0}
+  header.topbar{background:#fff;border-bottom:1px solid var(--line);padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+  header.topbar h1{font-size:19px;margin:0}
+  header.topbar p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+  .refresh-btn{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy)}
+  .refresh-btn:hover{background:#f2f2ec}
+
+  main.content{padding:26px 28px 50px;max-width:1180px}
+  .greet h2{font-size:23px;margin:0 0 4px}
+  .greet p{color:var(--muted);margin:0 0 22px;font-size:13.5px}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .stat-card .lbl{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .stat-card .val{font-size:26px;font-weight:800;color:var(--navy);margin:8px 0 3px}
+  .stat-card .sub{font-size:11.5px;color:var(--muted)}
+  .stat-card .sub.warn{color:#9a6700}
+  .stat-card .sub.ok{color:var(--green-dark)}
+
+  .grid2{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;margin-bottom:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .panel-head h3{margin:0;font-size:15.5px}
+  .small-btn{border:1px solid var(--line);background:#fff;padding:6px 13px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;color:var(--navy)}
+  .small-btn:hover{background:#f2f2ec}
+
+  table.tbl{width:100%;border-collapse:collapse}
+  table.tbl th{text-align:left;font-size:10.5px;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;padding:8px 8px;border-bottom:1px solid var(--line)}
+  table.tbl td{padding:11px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  table.tbl tr:last-child td{border-bottom:0}
+  .cust b{font-weight:700}
+  .price{font-weight:700;color:var(--green-dark)}
+  .pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;white-space:nowrap;display:inline-block}
+  .pill-new{background:#e6f0fb;color:#1b5fa8}
+  .pill-ok{background:var(--ok-bg);color:var(--green-dark)}
+  .pill-done{background:#eef0ee;color:var(--muted)}
+  .pill-rej{background:var(--danger-bg);color:var(--danger)}
+  .pill-paid{background:var(--ok-bg);color:var(--green-dark)}
+  .pill-pause{background:#fdf3e0;color:#9a6700}
+
+  .notif{padding:11px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .notif:last-child{border-bottom:0}
+  .notif .pill{margin-bottom:5px}
+  .notif .msg{color:var(--navy)}
+  .notif .time{color:var(--muted);font-size:11px;margin-top:3px}
+
+  .cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .cal-nav{display:flex;align-items:center;gap:8px}
+  .cal-nav-btn{border:1px solid var(--line);background:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:14px;color:var(--navy);display:flex;align-items:center;justify-content:center}
+  .cal-nav-btn:hover{background:#f2f2ec}
+  .cal-today-btn{border:1px solid var(--line);background:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-today-btn:hover{background:#f2f2ec}
+  .cal-title{font-size:17px;font-weight:800;text-align:center;flex:1}
+  .cal-view-toggle{display:flex;gap:4px;border:1px solid var(--line);border-radius:8px;padding:3px;background:#fff}
+  .cal-view-btn{border:0;background:transparent;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-view-btn.active{background:var(--navy);color:#fff}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line)}
+  .cal-dayhead{background:var(--card);padding:10px 8px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .cal-cell{background:#fff;min-height:112px;padding:10px;display:flex;flex-direction:column;gap:6px}
+  .cal-cell.out-month{background:#fbfbf8}
+  .cal-cell.out-month .cal-daynum{color:#c7c9c2}
+  .cal-cell.has-events{background:var(--ok-bg)}
+  .cal-cell.today{outline:2px solid var(--green);outline-offset:-2px}
+  .cal-daynum{align-self:flex-end;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-event{background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;box-shadow:0 0 0 1px var(--line) inset}
+  .cal-event-top{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+  .cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .cal-name{font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-event-bottom{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .cal-price{font-weight:700;color:var(--navy)}
+  .cal-status{font-weight:700;font-size:10px;white-space:nowrap}
+
+  .pf-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .pf-tab{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;color:var(--navy);cursor:pointer}
+  .pf-tab:hover{background:#f2f2ec}
+  .pf-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .pf-tab .cnt{background:#eef0ee;color:var(--navy);border-radius:9px;padding:1px 8px;font-size:11px;font-weight:800}
+  .pf-tab.active .cnt{background:#ffffff2e;color:#fff}
+
+  .mail-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:14px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .mail-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);border-color:var(--navy-2)}
+  .mail-card h4{margin:0 0 10px;font-size:14.5px}
+  .mail-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .mail-row:last-child{border-bottom:0}
+  .mail-row .k{color:var(--muted)}
+  .mail-row .v{font-weight:700;color:var(--navy)}
+  .mail-row .v.price{color:var(--green-dark)}
+
+  .row-click{cursor:pointer}
+  .row-click:hover{background:#f8f8f2}
+  .kd-action-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .kd-action-btn{text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+  .kd-action-btn:hover{background:#f2f2ec;border-color:var(--navy)}
+  .kd-action-btn b{font-size:13.5px;color:var(--navy)}
+  .kd-action-btn span{font-size:11.5px;color:var(--muted);line-height:1.4}
+  .kd-custom-mail .field textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(9,45,75,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+  .modal-box{background:#fff;border-radius:12px;padding:24px 26px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal-box h3{margin:0 0 10px;font-size:17px;color:var(--navy)}
+  .modal-box p{margin:0 0 20px;font-size:13.5px;color:var(--muted);line-height:1.5}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px}
+  .modal-danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  .modal-danger:hover{background:#a81f1f}
+  .modal-accept{background:var(--green-dark);border-color:var(--green-dark);color:#fff}
+  .modal-accept:hover{background:#0f3d29}
+  /* ---------- Buchungsdetail-Modal ---------- */
+  #booking-detail-modal .modal-box{max-width:460px}
+  #booking-detail-modal h3{margin-bottom:6px}
+  #bd-fields{margin-top:14px}
+  #bd-actions{margin-top:20px;justify-content:stretch}
+  #bd-actions button{flex:1;padding:11px;justify-content:center;text-align:center}
+  .bd-refund-hint{font-size:11.5px;color:var(--danger);background:var(--danger-bg);padding:9px 11px;border-radius:8px;margin-top:14px;line-height:1.5}
+  .bd-action-msg{font-size:12.5px;margin-top:12px;padding:8px 11px;border-radius:8px;display:none}
+  .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
+  .bd-action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
+  .pf-section-title{font-size:15.5px;margin:0 0 12px;font-weight:800}
+
+  .empty-state{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
+  .loading{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
+  .placeholder{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:60px 20px;text-align:center;color:var(--muted)}
+  .placeholder b{display:block;color:var(--navy);font-size:16px;margin-bottom:6px}
+
+  @media (max-width: 900px){
+    #login-screen{flex-direction:column}
+    .login-left{min-height:280px}
+    .shell{flex-direction:column}
+    .sidebar{width:100%;flex-direction:row;flex-wrap:wrap;align-items:center}
+    nav.sb-nav{flex-direction:row;flex-wrap:wrap}
+    .sb-footer{width:100%}
+    .stat-grid{grid-template-columns:repeat(2,1fr)}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-left">
+    <a class="back-link" href="/">&larr; zurück</a>
+    <div class="login-logo">
+      <div class="mark">🌱</div>
+      <b>EcoBin</b>
+    </div>
+    <div class="login-hero">
+      <h1>Interne <span>Verwaltung</span></h1>
+      <p>Buchungen, Monatsabos und Kunden an einem Ort verwalten – ruhig, übersichtlich, für das EcoBin-Team.</p>
+    </div>
+    <div class="wave"></div>
+  </div>
+  <div class="login-right">
+    <div class="login-form">
+      <div class="eyebrow">Anmeldung</div>
+      <h2>Willkommen zurück</h2>
+      <p>Melde dich mit deinem EcoBin-Verwaltungskonto an.</p>
+      <p class="login-error" id="login-error">Anmeldung fehlgeschlagen. Bitte Passwort/Token prüfen.</p>
+      <div class="field">
+        <label for="login-user">E-Mail oder Benutzername</label>
+        <input id="login-user" type="text" autocomplete="username" placeholder="z. B. mikaback777@gmail.com">
+      </div>
+      <div class="field">
+        <label for="login-pass">Passwort</label>
+        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Admin-Token">
+      </div>
+      <button id="login-btn">Anmelden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sb-logo">
+        <div class="mark">🌱</div>
+        <div>
+          <div class="name">EcoBin</div>
+          <div class="sub">Verwaltung</div>
+        </div>
+      </div>
+      <nav class="sb-nav">
+        <button class="sb-item active" data-tab="dashboard"><span class="ic">🏠</span> Dashboard</button>
+        <button class="sb-item" data-tab="kalender"><span class="ic">🗓️</span> Kalender</button>
+        <button class="sb-item" data-tab="postfach"><span class="ic">📮</span> Postfach<span class="sb-badge" id="pf-badge" style="display:none">0</span></button>
+        <button class="sb-item" data-tab="abos"><span class="ic">💳</span> Monatsabos</button>
+        <button class="sb-item" data-tab="kunden"><span class="ic">👥</span> Kunden</button>
+        <button class="sb-item" data-tab="einstellungen"><span class="ic">⚙️</span> Einstellungen</button>
+      </nav>
+      <div class="sb-footer">
+        <div class="avatar" id="user-avatar">EB</div>
+        <div class="who">
+          <b id="user-name">Admin</b>
+          <span id="user-email">—</span>
+        </div>
+        <button id="logout-btn" title="Abmelden">⏻</button>
+      </div>
+    </aside>
+
+    <div class="main-wrap">
+      <header class="topbar">
+        <div>
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-sub">Überblick über Buchungen, Umsatz und offene Aufgaben</p>
+        </div>
+        <button class="refresh-btn" id="refresh-btn">🔄 Aktualisieren</button>
+      </header>
+
+      <main class="content" id="view-dashboard">
+        <div class="greet">
+          <h2 id="greet-title">Guten Tag 👋</h2>
+          <p>Hier ist der Überblick über aktuelle Buchungen, Monatsabos und Umsatz.</p>
+        </div>
+
+        <div class="stat-grid" id="stat-grid">
+          <div class="stat-card">
+            <div class="lbl">Offene Buchungen</div>
+            <div class="val" id="stat-pending">–</div>
+            <div class="sub warn">warten auf Bestätigung</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Aktive Monatsabos</div>
+            <div class="val" id="stat-abos">–</div>
+            <div class="sub" id="stat-abos-sub">von – insgesamt</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl" id="stat-revenue-label">Umsatz</div>
+            <div class="val" id="stat-revenue">–</div>
+            <div class="sub">aus bestätigten Buchungen &amp; Abos</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Kunden gesamt</div>
+            <div class="val" id="stat-customers">–</div>
+            <div class="sub">registrierte Kundendatensätze</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Nächste Termine</h3>
+              <button class="small-btn" data-tab="kalender">Zum Kalender</button>
+            </div>
+            <div id="next-appointments"><div class="loading">Lädt …</div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Aktuelle Benachrichtigungen</h3>
+              <button class="small-btn" data-tab="postfach">Zum Postfach</button>
+            </div>
+            <div id="notifications"><div class="loading">Lädt …</div></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Letzte Buchungen</h3>
+            <button class="small-btn" data-tab="kunden">Alle Kunden</button>
+          </div>
+          <div id="recent-bookings"><div class="loading">Lädt …</div></div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kalender" style="display:none">
+        <div class="greet">
+          <h2>Kalender</h2>
+          <p>Terminübersicht der geplanten Reinigungen – Wochen- oder Monatsansicht.</p>
+        </div>
+
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" id="cal-prev">←</button>
+            <button class="cal-today-btn" id="cal-today">Heute</button>
+            <button class="cal-nav-btn" id="cal-next">→</button>
+          </div>
+          <div class="cal-title" id="cal-title">–</div>
+          <div class="cal-view-toggle">
+            <button class="cal-view-btn" data-cal-view="week">Woche</button>
+            <button class="cal-view-btn active" data-cal-view="month">Monat</button>
+          </div>
+        </div>
+
+        <div class="cal-grid" id="cal-grid"></div>
+      </main>
+
+      <main class="content" id="view-abos" style="display:none">
+        <div class="greet">
+          <h2>Monatsabos</h2>
+          <p>Laufende und beendete Abonnements im Überblick.</p>
+        </div>
+
+        <div class="stat-grid" style="margin-bottom:24px">
+          <div class="stat-card">
+            <div class="lbl">Aktive Abos</div>
+            <div class="val" id="abo-stat-active">–</div>
+            <div class="sub ok">laufende Abonnements</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Neue Anfragen</div>
+            <div class="val" id="abo-stat-pending">–</div>
+            <div class="sub warn">warten auf Bestätigung</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Monatsumsatz aus Abos</div>
+            <div class="val" id="abo-stat-revenue">–</div>
+            <div class="sub">aus aktiven Abonnements</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Abos gesamt</div>
+            <div class="val" id="abo-stat-total">–</div>
+            <div class="sub" id="abo-stat-total-sub">seit Start</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Abonnements</h3></div>
+          <div class="pf-tabs" id="abo-tabs">
+            <button class="pf-tab active" data-abo-filter="active">Aktiv <span class="cnt" id="abo-cnt-active">0</span></button>
+            <button class="pf-tab" data-abo-filter="pending">Neu <span class="cnt" id="abo-cnt-pending">0</span></button>
+            <button class="pf-tab" data-abo-filter="paused">Pausiert <span class="cnt" id="abo-cnt-paused">0</span></button>
+            <button class="pf-tab" data-abo-filter="rejected">Gekündigt <span class="cnt" id="abo-cnt-rejected">0</span></button>
+            <button class="pf-tab" data-abo-filter="all">Alle <span class="cnt" id="abo-cnt-all">0</span></button>
+          </div>
+          <div id="abo-table"><div class="loading">Lädt …</div></div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kunde-detail" style="display:none">
+        <div class="greet">
+          <button class="small-btn" id="kd-back" style="margin-bottom:14px">← Zurück zu Monatsabos</button>
+          <h2 id="kd-title">Kunde</h2>
+          <p id="kd-status"></p>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Kundendaten</h3></div>
+          <div id="kd-fields"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="pf-section-title" style="margin:0">Verwaltung</h3>
+            <button class="small-btn" id="kd-edit-toggle">✎ Bearbeiten</button>
+          </div>
+          <div id="kd-edit-panel" style="display:none">
+            <div class="kd-action-grid">
+              <button class="kd-action-btn" data-kd-action="cancel">
+                <b>Abo kündigen</b>
+                <span>E-Mail-Entwurf zur Kündigung öffnen · Status wird auf „Gekündigt" gesetzt</span>
+              </button>
+              <button class="kd-action-btn" data-kd-action="reschedule">
+                <b>Termin verlegen</b>
+                <span>E-Mail-Entwurf zur Terminverlegung öffnen · Status bleibt „Aktiv"</span>
+              </button>
+              <button class="kd-action-btn" data-kd-action="pause">
+                <b>Abo pausieren</b>
+                <span>E-Mail-Entwurf zur Pausierung öffnen · Status wird auf „Pausiert" gesetzt</span>
+              </button>
+              <button class="kd-action-btn" data-kd-action="custom">
+                <b>Eigene E-Mail schreiben</b>
+                <span>Freien E-Mail-Entwurf an den Kunden öffnen</span>
+              </button>
+            </div>
+            <div id="kd-custom-mail" class="kd-custom-mail" style="display:none;margin-top:14px">
+              <div class="field"><label>Betreff</label><input type="text" id="kd-custom-subject"></div>
+              <div class="field"><label>Nachricht</label><textarea id="kd-custom-body" rows="6"></textarea></div>
+              <button class="small-btn" id="kd-custom-send">E-Mail-Entwurf öffnen</button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <main class="content" id="view-postfach" style="display:none">
+        <div class="greet">
+          <h2>Postfach</h2>
+          <p>Offene Aufträge, Verlauf und sonstige Nachrichten.</p>
+        </div>
+
+        <div class="pf-tabs" id="postfach-subtabs" style="margin-bottom:18px">
+          <button class="pf-tab active" data-pf-sub="buchungen">Buchungsanfragen</button>
+          <button class="pf-tab" data-pf-sub="andere">Andere Nachrichten <span class="cnt" id="pf-other-badge">0</span></button>
+        </div>
+
+        <div id="pf-sub-buchungen">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Offene Aufträge</h3></div>
+            <div id="postfach-open"><div class="loading">Lädt …</div></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="pf-section-title" style="margin:0">Verlauf</h3>
+              <button class="small-btn" id="pf-history-toggle">Verlauf anzeigen</button>
+            </div>
+            <div id="pf-history-body" style="display:none">
+              <div class="pf-tabs" id="pf-tabs">
+                <button class="pf-tab active" data-pf-filter="open">Offen <span class="cnt" id="pf-cnt-open">0</span></button>
+                <button class="pf-tab" data-pf-filter="accepted">Angenommen <span class="cnt" id="pf-cnt-accepted">0</span></button>
+                <button class="pf-tab" data-pf-filter="rejected">Abgelehnt <span class="cnt" id="pf-cnt-rejected">0</span></button>
+                <button class="pf-tab" data-pf-filter="all">Alle <span class="cnt" id="pf-cnt-all">0</span></button>
+              </div>
+              <div id="postfach-history"><div class="loading">Lädt …</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="pf-sub-andere" style="display:none">
+          <div class="panel">
+            <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Andere Nachrichten</h3></div>
+            <div id="pf-other-list"><div class="empty-state">Keine sonstigen Nachrichten.</div></div>
+          </div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kunden" style="display:none">
+        <div class="greet">
+          <h2>Kunden</h2>
+          <p>Alle Kundendatensätze im Überblick.</p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head" style="flex-wrap:wrap;gap:10px">
+            <h3 class="pf-section-title" style="margin:0">Alle Kunden</h3>
+            <input type="text" id="ku-search" placeholder="Suche nach Name oder E-Mail …" style="padding:9px 13px;border:1px solid var(--line);border-radius:8px;font-size:13px;min-width:230px;background:#fff">
+          </div>
+          <div class="pf-tabs" id="ku-tabs">
+            <button class="pf-tab active" data-ku-filter="all">Alle <span class="cnt" id="ku-cnt-all">0</span></button>
+            <button class="pf-tab" data-ku-filter="abo-active">Abo aktiv <span class="cnt" id="ku-cnt-abo-active">0</span></button>
+            <button class="pf-tab" data-ku-filter="no-abo">Kein Abo <span class="cnt" id="ku-cnt-no-abo">0</span></button>
+          </div>
+          <div id="ku-table"><div class="loading">Lädt …</div></div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kunden-detail" style="display:none">
+        <div class="greet">
+          <button class="small-btn" id="ku-back" style="margin-bottom:14px">← Zurück zu Kunden</button>
+          <h2 id="ku-title">Kunde</h2>
+          <p id="ku-sub"></p>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Kundendaten</h3></div>
+          <div id="ku-fields"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Buchungen</h3></div>
+          <div id="ku-bookings"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h3 class="pf-section-title" style="margin:0;color:var(--danger)">Gefahrenzone</h3></div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5">Löscht unwiderruflich alle gespeicherten Daten dieses Kunden (Kontaktdaten und Buchungen). Nur verwenden, wenn der Kunde die Löschung seiner Daten angefragt hat – es werden ausschließlich die Daten dieses einen Kunden entfernt.</p>
+          <button class="small-btn" id="ku-delete-btn" style="border-color:var(--danger);color:var(--danger)">🗑 Gesamte Daten löschen</button>
+        </div>
+      </main>
+
+      <main class="content" id="view-placeholder" style="display:none">
+        <div class="placeholder">
+          <b id="placeholder-title">Bereich</b>
+          Dieser Bereich folgt in einem späteren Schritt.
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="confirm-modal-title">Wirklich löschen?</h3>
+    <p id="confirm-modal-text"></p>
+    <div class="modal-actions">
+      <button class="small-btn" id="confirm-modal-cancel">Abbrechen</button>
+      <button class="small-btn modal-danger" id="confirm-modal-confirm">Ja, löschen</button>
+    </div>
+  </div>
+</div>
+
+<div id="booking-detail-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="bd-title">Buchung</h3>
+    <span class="pill" id="bd-status"></span>
+    <div id="bd-fields"></div>
+    <div class="modal-actions" id="bd-actions" style="display:none">
+      <button class="small-btn modal-accept" id="bd-accept-btn">Annehmen</button>
+      <button class="small-btn modal-danger" id="bd-reject-btn">Ablehnen</button>
+    </div>
+    <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Ablehnen“ verschickt eine Info-E-Mail an den Kunden – eine Rückerstattung erfolgt NICHT automatisch. Bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
+    <p class="bd-action-msg" id="bd-action-msg"></p>
+    <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
+  const TOKEN_KEY = "ecobin_verwaltung_token";
+  const USER_KEY = "ecobin_verwaltung_user";
+  let token = sessionStorage.getItem(TOKEN_KEY) || "";
+  let bookings = [];
+
+  const loginScreen = document.getElementById("login-screen");
+  const app = document.getElementById("app");
+  const loginBtn = document.getElementById("login-btn");
+  const userInput = document.getElementById("login-user");
+  const passInput = document.getElementById("login-pass");
+  const loginError = document.getElementById("login-error");
+
+  const PAGE_TITLES = {
+    dashboard: ["Dashboard", "Überblick über Buchungen, Umsatz und offene Aufgaben"],
+    kalender: ["Kalender", "Terminübersicht der geplanten Reinigungen – Wochen- oder Monatsansicht."],
+    postfach: ["Postfach", "Nachrichten und Kundenanfragen"],
+    abos: ["Monatsabos", "Laufende und beendete Abonnements"],
+    kunden: ["Kunden", "Alle Kundendatensätze"],
+    einstellungen: ["Einstellungen", "Konto- und Systemeinstellungen"],
+  };
+
+  function escapeHtml(str) {
+    return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function formatDateDe(d) {
+    if (!d) return "–";
+    try { return new Date(d + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+    catch (_) { return d; }
+  }
+  function formatDateTimeDe(iso) {
+    if (!iso) return "–";
+    try {
+      const dt = new Date(iso);
+      return dt.toLocaleDateString("de-DE") + ", " + dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    } catch (_) { return iso; }
+  }
+  function formatEuro(n) {
+    if (n === null || n === undefined || isNaN(n)) return "–";
+    return Number(n).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  }
+  function todayIso() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function initialsOf(str) {
+    str = (str || "").trim();
+    if (!str) return "EB";
+    const namePart = str.includes("@") ? str.split("@")[0] : str;
+    const words = namePart.replace(/[._-]+/g, " ").trim().split(/\s+/);
+    if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+    return namePart.slice(0, 2).toUpperCase();
+  }
+
+  async function api(path, opts) {
+    const res = await fetch(WORKER_URL + path, Object.assign({}, opts, {
+      headers: Object.assign({ "Authorization": "Bearer " + token }, (opts && opts.headers) || {}),
+    }));
+    if (res.status === 401) {
+      sessionStorage.removeItem(TOKEN_KEY);
+      token = "";
+      showLogin(true);
+      throw new Error("Nicht autorisiert");
+    }
+    return res.json();
+  }
+
+  function showLogin(withError) {
+    app.style.display = "none";
+    loginScreen.style.display = "flex";
+    loginError.style.display = withError ? "block" : "none";
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Anmelden";
+  }
+
+  function showApp() {
+    loginScreen.style.display = "none";
+    app.style.display = "block";
+    const displayName = sessionStorage.getItem(USER_KEY) || "Admin";
+    document.getElementById("user-avatar").textContent = initialsOf(displayName);
+    document.getElementById("user-name").textContent = displayName.includes("@") ? displayName.split("@")[0] : displayName;
+    document.getElementById("user-email").textContent = displayName;
+    loadDashboard();
+  }
+
+  loginBtn.addEventListener("click", async () => {
+    const user = userInput.value.trim();
+    const pass = passInput.value;
+    if (!pass) { loginError.textContent = "Bitte Passwort/Token eingeben."; loginError.style.display = "block"; return; }
+    token = pass;
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Wird geprüft …";
+    try {
+      const test = await api("/api/admin/bookings?status=pending");
+      if (Array.isArray(test)) {
+        sessionStorage.setItem(TOKEN_KEY, token);
+        sessionStorage.setItem(USER_KEY, user || "Admin");
+        showApp();
+      } else {
+        throw new Error("unexpected");
+      }
+    } catch (e) {
+      loginError.textContent = "Anmeldung fehlgeschlagen. Bitte Passwort/Token prüfen.";
+      loginError.style.display = "block";
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Anmelden";
+    }
+  });
+  [userInput, passInput].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") loginBtn.click(); }));
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    token = "";
+    showLogin(false);
+  });
+
+  document.getElementById("refresh-btn").addEventListener("click", loadDashboard);
+
+  // Navigation
+  document.querySelectorAll("[data-tab]").forEach((el) => {
+    el.addEventListener("click", () => switchTab(el.dataset.tab));
+  });
+  function switchTab(tab) {
+    document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    const [title, sub] = PAGE_TITLES[tab] || ["Dashboard", ""];
+    document.getElementById("page-title").textContent = title;
+    document.getElementById("page-sub").textContent = sub;
+    const namedViews = ["dashboard", "postfach", "kalender", "abos", "kunden"];
+    document.getElementById("view-dashboard").style.display = tab === "dashboard" ? "block" : "none";
+    document.getElementById("view-postfach").style.display = tab === "postfach" ? "block" : "none";
+    document.getElementById("view-kalender").style.display = tab === "kalender" ? "block" : "none";
+    document.getElementById("view-abos").style.display = tab === "abos" ? "block" : "none";
+    document.getElementById("view-kunden").style.display = tab === "kunden" ? "block" : "none";
+    document.getElementById("view-kunde-detail").style.display = "none";
+    document.getElementById("view-kunden-detail").style.display = "none";
+    if (!namedViews.includes(tab)) {
+      document.getElementById("view-placeholder").style.display = "block";
+      document.getElementById("placeholder-title").textContent = title;
+    } else {
+      document.getElementById("view-placeholder").style.display = "none";
+    }
+    if (tab === "kalender") renderCalendar();
+    if (tab === "abos") renderAbos();
+    if (tab === "kunden") renderKundenTable();
+  }
+
+  function statusInfo(b, todayI) {
+    if (b.status === "rejected") return { label: "Storniert", cls: "pill-rej" };
+    if (b.status === "pending") return { label: "Neu", cls: "pill-new" };
+    if (b.status === "paused") return { label: "Pausiert", cls: "pill-pause" };
+    if (b.status === "accepted") {
+      if (b.date && b.date < todayI) return { label: "Erledigt", cls: "pill-done" };
+      return { label: "Bestätigt", cls: "pill-ok" };
+    }
+    return { label: b.status || "–", cls: "pill-done" };
+  }
+
+  function bookingRowHtml(b, todayI) {
+    const st = statusInfo(b, todayI);
+    const bins = b.binTypes || (b.bins != null ? b.bins + "× Tonne" : "–");
+    return (
+      "<tr>" +
+      '<td class="cust"><b>' + escapeHtml(b.name || "Unbekannt") + "</b></td>" +
+      "<td>" + formatDateDe(b.date) + "</td>" +
+      "<td>" + escapeHtml(bins) + "</td>" +
+      '<td class="price">' + formatEuro(b.amount) + "</td>" +
+      '<td><span class="pill ' + st.cls + '">' + st.label + "</span></td>" +
+      '<td><span class="pill pill-paid">Bezahlt</span></td>' +
+      "</tr>"
+    );
+  }
+
+  function renderTable(containerId, list, todayI, emptyText) {
+    const el = document.getElementById(containerId);
+    if (!list.length) { el.innerHTML = '<div class="empty-state">' + emptyText + "</div>"; return; }
+    el.innerHTML =
+      '<table class="tbl"><thead><tr>' +
+      "<th>Kunde</th><th>Termin</th><th>Tonnen</th><th>Betrag</th><th>Status</th><th>Zahlung</th>" +
+      "</tr></thead><tbody>" + list.map((b) => bookingRowHtml(b, todayI)).join("") + "</tbody></table>";
+  }
+
+  let calView = "month";
+  let calDate = new Date();
+  calDate.setHours(0, 0, 0, 0);
+
+  function isoDateOf(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function addDaysCal(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    r.setHours(0, 0, 0, 0);
+    return r;
+  }
+  function startOfWeekCal(d) {
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return addDaysCal(d, diff);
+  }
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  function buildMonthDays(refDate) {
+    const year = refDate.getFullYear(), month = refDate.getMonth();
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    const start = startOfWeekCal(first);
+    const totalDays = Math.round((last - start) / 86400000) + 1;
+    const totalCells = Math.ceil(totalDays / 7) * 7;
+    const days = [];
+    for (let i = 0; i < totalCells; i++) days.push(addDaysCal(start, i));
+    return days;
+  }
+  function buildWeekDays(refDate) {
+    const start = startOfWeekCal(refDate);
+    const days = [];
+    for (let i = 0; i < 7; i++) days.push(addDaysCal(start, i));
+    return days;
+  }
+
+  function calTitleText() {
+    if (calView === "month") {
+      return capitalize(calDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" }));
+    }
+    const days = buildWeekDays(calDate);
+    const start = days[0], end = days[6];
+    if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+      return start.getDate() + ".–" + end.getDate() + ". " + capitalize(end.toLocaleDateString("de-DE", { month: "long", year: "numeric" }));
+    }
+    const mStart = start.toLocaleDateString("de-DE", { month: "short" });
+    const mEnd = end.toLocaleDateString("de-DE", { month: "short", year: "numeric" });
+    return start.getDate() + ". " + mStart + " – " + end.getDate() + ". " + mEnd;
+  }
+
+  function calEventHtml(b, todayI) {
+    const st = statusInfo(b, todayI);
+    const dotColor = { "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)";
+    return (
+      '<div class="cal-event">' +
+      '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + "</span></div>" +
+      '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status" style="color:' + dotColor + '">' + st.label + "</span></div>" +
+      "</div>"
+    );
+  }
+
+  function renderCalendar() {
+    const titleEl = document.getElementById("cal-title");
+    const gridEl = document.getElementById("cal-grid");
+    if (!titleEl || !gridEl) return;
+
+    titleEl.textContent = calTitleText();
+    document.querySelectorAll(".cal-view-btn").forEach((b) => b.classList.toggle("active", b.dataset.calView === calView));
+
+    const todayI = todayIso();
+    const byDate = {};
+    bookings.filter((b) => b.date && b.status !== "rejected").forEach((b) => {
+      (byDate[b.date] = byDate[b.date] || []).push(b);
+    });
+
+    const days = calView === "month" ? buildMonthDays(calDate) : buildWeekDays(calDate);
+    const currentMonth = calDate.getMonth();
+    const dayHeadNames = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
+
+    let html = dayHeadNames.map((n) => '<div class="cal-dayhead">' + n + "</div>").join("");
+    html += days.map((day) => {
+      const iso = isoDateOf(day);
+      const evts = (byDate[iso] || []).slice().sort((a, c) => (a.name || "").localeCompare(c.name || ""));
+      const isToday = iso === todayI;
+      const inMonth = calView === "week" ? true : day.getMonth() === currentMonth;
+      let cls = "cal-cell";
+      if (evts.length) cls += " has-events";
+      if (isToday) cls += " today";
+      if (!inMonth) cls += " out-month";
+      return (
+        '<div class="' + cls + '">' +
+        '<div class="cal-daynum">' + day.getDate() + "</div>" +
+        evts.map((b) => calEventHtml(b, todayI)).join("") +
+        "</div>"
+      );
+    }).join("");
+
+    gridEl.innerHTML = html;
+  }
+
+  document.getElementById("cal-prev").addEventListener("click", () => {
+    calDate = calView === "month" ? new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1) : addDaysCal(calDate, -7);
+    renderCalendar();
+  });
+  document.getElementById("cal-next").addEventListener("click", () => {
+    calDate = calView === "month" ? new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1) : addDaysCal(calDate, 7);
+    renderCalendar();
+  });
+  document.getElementById("cal-today").addEventListener("click", () => {
+    calDate = new Date();
+    calDate.setHours(0, 0, 0, 0);
+    renderCalendar();
+  });
+  document.querySelectorAll(".cal-view-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      calView = btn.dataset.calView;
+      renderCalendar();
+    });
+  });
+
+  function aboStatusInfo(b) {
+    if (b.status === "rejected") return { label: "Gekündigt", cls: "pill-rej" };
+    if (b.status === "pending") return { label: "Neu", cls: "pill-new" };
+    if (b.status === "paused") return { label: "Pausiert", cls: "pill-pause" };
+    if (b.status === "accepted") return { label: "Aktiv", cls: "pill-ok" };
+    return { label: b.status || "–", cls: "pill-done" };
+  }
+
+  function aboRowHtml(b) {
+    const st = aboStatusInfo(b);
+    return (
+      '<tr class="row-click" data-uid="' + b._uid + '">' +
+      '<td class="cust"><b>' + escapeHtml(b.name || "Unbekannt") + "</b></td>" +
+      "<td>" + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</td>" +
+      "<td>" + formatDateDe(b.date) + "</td>" +
+      '<td class="price">' + formatEuro(b.amount) + " / Monat</td>" +
+      '<td><span class="pill ' + st.cls + '">' + st.label + "</span></td>" +
+      "</tr>"
+    );
+  }
+
+  function renderAboTable(list) {
+    const el = document.getElementById("abo-table");
+    if (!list.length) { el.innerHTML = '<div class="empty-state">Keine Abonnements in dieser Ansicht.</div>'; return; }
+    el.innerHTML =
+      '<table class="tbl"><thead><tr>' +
+      "<th>Kunde</th><th>Seit</th><th>Nächster Termin</th><th>Betrag</th><th>Status</th>" +
+      "</tr></thead><tbody>" + list.map(aboRowHtml).join("") + "</tbody></table>";
+    el.querySelectorAll("tr[data-uid]").forEach((tr) => {
+      tr.addEventListener("click", () => showKundeDetail(tr.dataset.uid));
+    });
+  }
+
+  let aboFilter = "active";
+
+  function aboFilteredList(list) {
+    if (aboFilter === "active") return list.filter((b) => b.status === "accepted");
+    if (aboFilter === "pending") return list.filter((b) => b.status === "pending");
+    if (aboFilter === "paused") return list.filter((b) => b.status === "paused");
+    if (aboFilter === "rejected") return list.filter((b) => b.status === "rejected");
+    return list;
+  }
+
+  function renderAbos() {
+    const totalEl = document.getElementById("abo-stat-active");
+    if (!totalEl) return;
+
+    const all = bookings.filter((b) => b.abo);
+    const active = all.filter((b) => b.status === "accepted");
+    const pending = all.filter((b) => b.status === "pending");
+    const paused = all.filter((b) => b.status === "paused");
+    const rejected = all.filter((b) => b.status === "rejected");
+
+    document.getElementById("abo-stat-active").textContent = active.length;
+    document.getElementById("abo-stat-pending").textContent = pending.length;
+    document.getElementById("abo-stat-total").textContent = all.length;
+    document.getElementById("abo-stat-total-sub").textContent = all.length ? "seit Start" : "noch keine Abos";
+    const revenue = active.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+    document.getElementById("abo-stat-revenue").textContent = formatEuro(revenue);
+
+    const counts = { active: active.length, pending: pending.length, paused: paused.length, rejected: rejected.length, all: all.length };
+    Object.keys(counts).forEach((k) => {
+      const cntEl = document.getElementById("abo-cnt-" + k);
+      if (cntEl) cntEl.textContent = counts[k];
+    });
+    document.querySelectorAll("#abo-tabs .pf-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.aboFilter === aboFilter));
+
+    const filtered = aboFilteredList(all).slice().sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""));
+    renderAboTable(filtered);
+  }
+
+  document.querySelectorAll("#abo-tabs .pf-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      aboFilter = btn.dataset.aboFilter;
+      renderAbos();
+    });
+  });
+
+  let pfFilter = "open";
+
+  function mailCardHtml(b, todayI) {
+    const st = statusInfo(b, todayI);
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    return (
+      '<div class="mail-card" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsdatum</span><span class="v">' + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Status</span><span class="pill ' + st.cls + '">' + st.label + "</span></div>" +
+      "</div>"
+    );
+  }
+
+  function renderCards(containerId, list, todayI, emptyText) {
+    const el = document.getElementById(containerId);
+    if (!list.length) { el.innerHTML = '<div class="empty-state">' + emptyText + "</div>"; return; }
+    el.innerHTML = list.map((b) => mailCardHtml(b, todayI)).join("");
+    el.querySelectorAll(".mail-card").forEach((card) => {
+      card.addEventListener("click", () => openBookingDetail(card.dataset.uid));
+    });
+  }
+
+  // Vorschau der offenen Postfach-Einträge fürs Dashboard (kein Verlauf, keine erledigten Buchungen)
+  function renderNotifications(list, todayI) {
+    const pending = list
+      .filter((b) => b.status === "pending")
+      .slice()
+      .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""))
+      .slice(0, 3);
+    renderCards("notifications", pending, todayI, "Keine offenen Anfragen im Postfach.");
+  }
+
+  function pfFilteredList(list) {
+    if (pfFilter === "open") return list.filter((b) => b.status === "pending");
+    if (pfFilter === "accepted") return list.filter((b) => b.status === "accepted");
+    if (pfFilter === "rejected") return list.filter((b) => b.status === "rejected");
+    return list;
+  }
+
+  function renderPostfach(list, todayI) {
+    // Offene Aufträge – hauptbereich, immer nur unbeantwortete Buchungen
+    const open = list
+      .filter((b) => b.status === "pending")
+      .slice()
+      .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""));
+    renderCards("postfach-open", open, todayI, "Keine offenen Aufträge.");
+
+    // Zähler für die Filter-Tabs
+    const counts = {
+      open: open.length,
+      accepted: list.filter((b) => b.status === "accepted").length,
+      rejected: list.filter((b) => b.status === "rejected").length,
+      all: list.length,
+    };
+    Object.keys(counts).forEach((k) => {
+      const cntEl = document.getElementById("pf-cnt-" + k);
+      if (cntEl) cntEl.textContent = counts[k];
+    });
+    document.querySelectorAll("#pf-tabs .pf-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.pfFilter === pfFilter));
+
+    // Sidebar-Badge
+    const badge = document.getElementById("pf-badge");
+    if (badge) {
+      badge.textContent = counts.open;
+      badge.style.display = counts.open > 0 ? "inline-block" : "none";
+    }
+
+    // Verlauf – gefiltert nach ausgewähltem Tab, nur rendern wenn eingeblendet
+    if (pfHistoryOpen) {
+      const history = pfFilteredList(list)
+        .slice()
+        .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""));
+      renderCards("postfach-history", history, todayI, "Keine Buchungen in dieser Ansicht.");
+    }
+  }
+
+  document.querySelectorAll("#pf-tabs .pf-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pfFilter = btn.dataset.pfFilter;
+      renderPostfach(bookings, todayIso());
+    });
+  });
+
+  let pfHistoryOpen = false;
+  const pfHistoryToggle = document.getElementById("pf-history-toggle");
+  const pfHistoryBody = document.getElementById("pf-history-body");
+  pfHistoryToggle.addEventListener("click", () => {
+    pfHistoryOpen = !pfHistoryOpen;
+    pfHistoryBody.style.display = pfHistoryOpen ? "block" : "none";
+    pfHistoryToggle.textContent = pfHistoryOpen ? "Verlauf ausblenden" : "Verlauf anzeigen";
+    if (pfHistoryOpen) renderPostfach(bookings, todayIso());
+  });
+
+  document.querySelectorAll("#postfach-subtabs .pf-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#postfach-subtabs .pf-tab").forEach((b) => b.classList.toggle("active", b === btn));
+      const sub = btn.dataset.pfSub;
+      document.getElementById("pf-sub-buchungen").style.display = sub === "buchungen" ? "block" : "none";
+      document.getElementById("pf-sub-andere").style.display = sub === "andere" ? "block" : "none";
+    });
+  });
+
+  let otherMessagesLoaded = false;
+
+  async function loadDashboard() {
+    const btn = document.getElementById("refresh-btn");
+    btn.disabled = true; btn.textContent = "Lädt …";
+    otherMessagesLoaded = false; // beim expliziten Neuladen auch Gmail-Nachrichten aktualisieren
+    try {
+      bookings = await api("/api/admin/bookings?status=all");
+      if (!Array.isArray(bookings)) bookings = [];
+      bookings.forEach((b, i) => { b._uid = b.id != null ? String(b.id) : String(i); });
+      render();
+    } catch (e) {
+      // 401 already handled inside api(); other errors:
+      if (token) {
+        document.getElementById("next-appointments").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("notifications").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("recent-bookings").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("postfach-open").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("postfach-history").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("abo-table").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = "🔄 Aktualisieren";
+    }
+  }
+
+  function render() {
+    const todayI = todayIso();
+    const now = new Date();
+    const curMonth = now.getMonth(), curYear = now.getFullYear();
+    const monthName = now.toLocaleDateString("de-DE", { month: "long" });
+    document.getElementById("stat-revenue-label").textContent = "Umsatz (" + monthName + ")";
+
+    // Offene Buchungen
+    const pending = bookings.filter((b) => b.status === "pending");
+    document.getElementById("stat-pending").textContent = pending.length;
+
+    // Aktive Monatsabos
+    const aboAll = bookings.filter((b) => b.abo);
+    const aboActive = aboAll.filter((b) => b.status === "accepted");
+    document.getElementById("stat-abos").textContent = aboActive.length;
+    document.getElementById("stat-abos-sub").textContent = "von " + aboAll.length + " insgesamt";
+
+    // Umsatz aktueller Monat (bestätigte Buchungen mit Termin in diesem Monat)
+    const revenue = bookings
+      .filter((b) => b.status === "accepted" && b.date)
+      .filter((b) => {
+        const d = new Date(b.date + "T00:00:00");
+        return d.getMonth() === curMonth && d.getFullYear() === curYear;
+      })
+      .reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+    document.getElementById("stat-revenue").textContent = formatEuro(revenue);
+
+    // Kunden gesamt (eindeutige E-Mail/Name)
+    const customerKeys = new Set(bookings.map((b) => (b.email || b.name || "").toLowerCase()).filter(Boolean));
+    document.getElementById("stat-customers").textContent = customerKeys.size;
+
+    // Nächste Termine
+    const upcoming = bookings
+      .filter((b) => b.status !== "rejected" && b.date && b.date >= todayI)
+      .sort((a, c) => a.date.localeCompare(c.date))
+      .slice(0, 6);
+    renderTable("next-appointments", upcoming, todayI, "Keine bevorstehenden Termine.");
+
+    // Letzte Buchungen
+    const recent = bookings
+      .slice()
+      .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""))
+      .slice(0, 8);
+    renderTable("recent-bookings", recent, todayI, "Noch keine Buchungen vorhanden.");
+
+    // Aktuelle Benachrichtigungen (Dashboard) = Vorschau der offenen Postfach-Einträge
+    renderNotifications(bookings, todayI);
+
+    // Kalender (Monats-/Wochenansicht mit Live-Daten)
+    renderCalendar();
+
+    // Monatsabos
+    renderAbos();
+
+    // Postfach (offene Aufträge + filterbarer Verlauf)
+    renderPostfach(bookings, todayI);
+
+    // Andere Nachrichten (Postfach) – echte Gmail-Nachrichten laden
+    if (!otherMessagesLoaded) {
+      otherMessagesLoaded = true;
+      loadOtherMessages();
+    } else {
+      renderOtherMessages();
+    }
+
+    // Kunden
+    renderKundenTable();
+  }
+
+  // ---------- Kundendetail (Monatsabos) ----------
+  let currentKundeUid = null;
+
+  function findBookingByUid(uid) {
+    return bookings.find((b) => b._uid === String(uid));
+  }
+
+  function fieldVal(b, keys, fallback) {
+    for (const k of keys) {
+      const v = b[k];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return fallback !== undefined ? fallback : "–";
+  }
+
+  function formatBinsDetail(b) {
+    if (Array.isArray(b.binsDetail) && b.binsDetail.length) {
+      return escapeHtml(b.binsDetail.map((x) => (x.amount || x.qty || "") + "× " + (x.type || x.name || "")).join(", "));
+    }
+    if (b.binTypes) return escapeHtml(String(b.binTypes));
+    if (b.bins != null) return escapeHtml(b.bins + "× Tonne");
+    return "–";
+  }
+
+  function formatExtras(b) {
+    if (Array.isArray(b.extras) && b.extras.length) return escapeHtml(b.extras.join(", "));
+    if (typeof b.extras === "string" && b.extras) return escapeHtml(b.extras);
+    return "–";
+  }
+
+  function formatAddress(b) {
+    const strasse = fieldVal(b, ["address", "strasse", "street"], "");
+    const plz = fieldVal(b, ["plz", "zip", "postcode"], "");
+    const ort = fieldVal(b, ["ort", "city"], "");
+    const zeile2 = [plz, ort].filter((x) => x && x !== "–").join(" ");
+    const parts = [strasse, zeile2].filter((x) => x && x !== "–");
+    return parts.length ? escapeHtml(parts.join(", ")) : "–";
+  }
+
+  function kdRowHtml(k, v) {
+    return '<div class="mail-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>";
+  }
+
+  function renderKundeDetail(b) {
+    const st = aboStatusInfo(b);
+    document.getElementById("kd-title").textContent = b.name || "Unbekannt";
+    document.getElementById("kd-status").innerHTML = '<span class="pill ' + st.cls + '">' + st.label + "</span>";
+    document.getElementById("kd-fields").innerHTML =
+      kdRowHtml("Name", escapeHtml(b.name || "Unbekannt")) +
+      kdRowHtml("E-Mail", escapeHtml(fieldVal(b, ["email"]))) +
+      kdRowHtml("Telefon", escapeHtml(fieldVal(b, ["phone", "telefon", "tel"]))) +
+      kdRowHtml("Adresse", formatAddress(b)) +
+      kdRowHtml("Tonnenarten &amp; Mengen", formatBinsDetail(b)) +
+      kdRowHtml("Extras", formatExtras(b)) +
+      kdRowHtml("Reinigungstermin", formatDateDe(b.date)) +
+      kdRowHtml("Buchungsdatum", formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null)) +
+      kdRowHtml("Buchungsart", b.abo ? "Monatsabo" : "Einmalzahlung") +
+      kdRowHtml("Betrag", formatEuro(b.amount) + (b.abo ? " / Monat" : "")) +
+      kdRowHtml("Notizen", escapeHtml(fieldVal(b, ["notes", "message", "wunsch", "comment"])));
+
+    document.getElementById("kd-edit-panel").style.display = "none";
+    document.getElementById("kd-edit-toggle").textContent = "✎ Bearbeiten";
+    document.getElementById("kd-custom-mail").style.display = "none";
+  }
+
+  function showKundeDetail(uid) {
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    currentKundeUid = String(uid);
+    document.querySelectorAll(".content").forEach((el) => { el.style.display = "none"; });
+    document.getElementById("view-kunde-detail").style.display = "block";
+    document.querySelectorAll(".sb-item").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === "abos"));
+    document.getElementById("page-title").textContent = "Kunde";
+    document.getElementById("page-sub").textContent = "Details zum Monatsabo";
+    renderKundeDetail(b);
+  }
+
+  document.getElementById("kd-back").addEventListener("click", () => switchTab("abos"));
+
+  document.getElementById("kd-edit-toggle").addEventListener("click", () => {
+    const panel = document.getElementById("kd-edit-panel");
+    const open = panel.style.display !== "none";
+    panel.style.display = open ? "none" : "block";
+    document.getElementById("kd-edit-toggle").textContent = open ? "✎ Bearbeiten" : "Schließen";
+    if (open) document.getElementById("kd-custom-mail").style.display = "none";
+  });
+
+  function openMailDraft(to, subject, body) {
+    window.location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+  }
+
+  function setBookingStatus(uid, status) {
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    b.status = status;
+    render();
+    renderKundeDetail(b);
+  }
+
+  // ---------- Buchungsdetailansicht (Postfach → Buchungsanfragen) ----------
+  let currentBookingDetailUid = null;
+
+  function bdFieldsHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    const rows = [
+      ["Name", escapeHtml(fieldVal(b, ["name"], "–"))],
+      ["E-Mail", escapeHtml(fieldVal(b, ["email"], "–"))],
+      ["Adresse", formatAddress(b)],
+      ["Reinigungstermin", formatDateDe(b.date)],
+      ["Buchungsdatum", formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null)],
+      ["Buchungsart", buchungsart],
+      ["Gesamtpreis", formatEuro(b.amount)],
+      ["Zahlungsstatus", "Bezahlt"],
+      ["PayPal-Referenz", escapeHtml(fieldVal(b, ["paypalRef"], "–"))],
+      ["Tonnen", b.binTypes ? escapeHtml(String(b.binTypes)) : "–"],
+      ["Anzahl der Tonnen", b.bins != null ? escapeHtml(String(b.bins)) : "–"],
+      ["Extras", formatExtras(b)],
+      ["Zusätzliche Informationen", escapeHtml(fieldVal(b, ["note"], "–"))],
+    ];
+    return rows.map(([k, v]) => kdRowHtml(k, v)).join("");
+  }
+
+  function openBookingDetail(uid) {
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    currentBookingDetailUid = String(uid);
+
+    document.getElementById("bd-title").textContent = b.name || "Buchung";
+    const st = statusInfo(b, todayIso());
+    const statusEl = document.getElementById("bd-status");
+    statusEl.className = "pill " + st.cls;
+    statusEl.textContent = st.label;
+    document.getElementById("bd-fields").innerHTML = bdFieldsHtml(b);
+
+    const msg = document.getElementById("bd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.textContent = "";
+
+    const actions = document.getElementById("bd-actions");
+    const refundHint = document.getElementById("bd-refund-hint");
+    const isPending = b.status === "pending";
+    actions.style.display = isPending ? "flex" : "none";
+    refundHint.style.display = isPending ? "block" : "none";
+    document.getElementById("bd-accept-btn").disabled = false;
+    document.getElementById("bd-reject-btn").disabled = false;
+
+    document.getElementById("booking-detail-modal").style.display = "flex";
+  }
+
+  function closeBookingDetail() {
+    document.getElementById("booking-detail-modal").style.display = "none";
+    currentBookingDetailUid = null;
+  }
+
+  document.getElementById("bd-close-btn").addEventListener("click", closeBookingDetail);
+  document.getElementById("booking-detail-modal").addEventListener("click", (e) => {
+    if (e.target.id === "booking-detail-modal") closeBookingDetail();
+  });
+
+  async function decideBookingDetail(action) {
+    const uid = currentBookingDetailUid;
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    const acceptBtn = document.getElementById("bd-accept-btn");
+    const rejectBtn = document.getElementById("bd-reject-btn");
+    acceptBtn.disabled = true; rejectBtn.disabled = true;
+    const msg = document.getElementById("bd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.textContent = "";
+    try {
+      const idForApi = b.id != null ? b.id : uid;
+      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/" + action, { method: "POST" });
+      if (res && res.error) {
+        msg.className = "bd-action-msg error";
+        msg.textContent = res.error;
+        acceptBtn.disabled = false; rejectBtn.disabled = false;
+        return;
+      }
+      b.status = action === "accept" ? "accepted" : "rejected";
+      msg.className = "bd-action-msg ok";
+      msg.textContent = action === "accept"
+        ? "Buchung angenommen – Bestätigungs-E-Mail wurde verschickt."
+        : "Buchung abgelehnt – Info-E-Mail wurde verschickt.";
+      render();
+      setTimeout(closeBookingDetail, 900);
+    } catch (e) {
+      msg.className = "bd-action-msg error";
+      msg.textContent = "Fehler – bitte erneut versuchen.";
+      acceptBtn.disabled = false; rejectBtn.disabled = false;
+    }
+  }
+
+  document.getElementById("bd-accept-btn").addEventListener("click", () => decideBookingDetail("accept"));
+  document.getElementById("bd-reject-btn").addEventListener("click", () => decideBookingDetail("reject"));
+
+  document.querySelectorAll(".kd-action-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const b = findBookingByUid(currentKundeUid);
+      if (!b) return;
+      const to = fieldVal(b, ["email"], "");
+      const name = b.name || "Kunde";
+      const action = btn.dataset.kdAction;
+
+      if (action === "custom") {
+        document.getElementById("kd-custom-mail").style.display = "block";
+        document.getElementById("kd-custom-subject").value = "";
+        document.getElementById("kd-custom-body").value = "Hallo " + name + ",\n\n\n\nViele Grüße\nIhr EcoBin-Team";
+        return;
+      }
+      document.getElementById("kd-custom-mail").style.display = "none";
+
+      if (action === "cancel") {
+        openMailDraft(to, "Kündigung Ihres Monatsabos bei EcoBin",
+          "Hallo " + name + ",\n\nhiermit bestätigen wir die Kündigung Ihres Monatsabos zur Mülltonnenreinigung.\n\nViele Grüße\nIhr EcoBin-Team");
+        setBookingStatus(currentKundeUid, "rejected");
+      } else if (action === "reschedule") {
+        openMailDraft(to, "Terminverlegung – Ihre Mülltonnenreinigung",
+          "Hallo " + name + ",\n\nwir möchten Ihren Reinigungstermin verlegen. Bitte teilen Sie uns Ihren Wunschtermin mit, oder wir schlagen Ihnen gerne einen neuen Termin vor.\n\nViele Grüße\nIhr EcoBin-Team");
+        setBookingStatus(currentKundeUid, "accepted");
+      } else if (action === "pause") {
+        openMailDraft(to, "Pausierung Ihres Monatsabos bei EcoBin",
+          "Hallo " + name + ",\n\nwir haben Ihr Monatsabo wie gewünscht pausiert. Sobald Sie es wieder fortsetzen möchten, melden Sie sich gerne bei uns.\n\nViele Grüße\nIhr EcoBin-Team");
+        setBookingStatus(currentKundeUid, "paused");
+      }
+    });
+  });
+
+  document.getElementById("kd-custom-send").addEventListener("click", () => {
+    const b = findBookingByUid(currentKundeUid);
+    if (!b) return;
+    const to = fieldVal(b, ["email"], "");
+    const subject = document.getElementById("kd-custom-subject").value || "Nachricht von EcoBin";
+    const body = document.getElementById("kd-custom-body").value || "";
+    openMailDraft(to, subject, body);
+  });
+
+  // ---------- Bestätigungs-Modal (generisch) ----------
+  let confirmCallback = null;
+  function openConfirmModal(text, onConfirm) {
+    document.getElementById("confirm-modal-text").textContent = text;
+    confirmCallback = onConfirm;
+    document.getElementById("confirm-modal").style.display = "flex";
+  }
+  function closeConfirmModal() {
+    document.getElementById("confirm-modal").style.display = "none";
+    confirmCallback = null;
+  }
+  document.getElementById("confirm-modal-cancel").addEventListener("click", closeConfirmModal);
+  document.getElementById("confirm-modal-confirm").addEventListener("click", () => {
+    const cb = confirmCallback;
+    closeConfirmModal();
+    if (cb) cb();
+  });
+
+  // ---------- Andere Nachrichten (Postfach) ----------
+  // Echte Nachrichten aus dem Gmail-Postfach von EcoBin, geladen über
+  // GET /api/admin/other-messages (Worker filtert automatische
+  // Buchungs-/Zahlungs-Mails bereits serverseitig heraus).
+  let otherMessages = [];
+  let otherMessagesLoading = true;
+  let otherMessagesError = false;
+
+  async function loadOtherMessages() {
+    otherMessagesLoading = true;
+    otherMessagesError = false;
+    renderOtherMessages();
+    try {
+      const data = await api("/api/admin/other-messages");
+      otherMessages = Array.isArray(data) ? data : [];
+    } catch (e) {
+      otherMessagesError = true;
+      otherMessages = [];
+    } finally {
+      otherMessagesLoading = false;
+      renderOtherMessages();
+    }
+  }
+
+  function otherMsgCardHtml(m) {
+    return (
+      '<div class="mail-card">' +
+      "<h4>" + escapeHtml(m.subject || "(kein Betreff)") + "</h4>" +
+      '<div class="mail-row"><span class="k">Von</span><span class="v">' + escapeHtml(m.name || m.email || "Unbekannt") + "</span></div>" +
+      '<div class="mail-row"><span class="k">E-Mail</span><span class="v">' + escapeHtml(m.email || "–") + "</span></div>" +
+      '<div class="mail-row" style="border-bottom:0"><span class="k">Eingegangen</span><span class="v">' + formatDateDe(m.receivedAt) + "</span></div>" +
+      '<p style="font-size:13px;color:var(--navy);margin:6px 0 14px;white-space:pre-wrap">' + escapeHtml(m.message || "") + "</p>" +
+      '<div style="display:flex;gap:8px">' +
+      '<button class="small-btn" data-msg-reply="' + m.id + '">↩ Antworten</button>' +
+      '<button class="small-btn" data-msg-delete="' + m.id + '" style="border-color:var(--danger);color:var(--danger)">Löschen</button>' +
+      "</div></div>"
+    );
+  }
+
+  function renderOtherMessages() {
+    const el = document.getElementById("pf-other-list");
+    const badge = document.getElementById("pf-other-badge");
+    if (!el) return;
+    if (badge) badge.textContent = otherMessages.length;
+    if (otherMessagesLoading) { el.innerHTML = '<div class="loading">Lädt …</div>'; return; }
+    if (otherMessagesError) { el.innerHTML = '<div class="empty-state">Nachrichten konnten nicht geladen werden.</div>'; return; }
+    if (!otherMessages.length) { el.innerHTML = '<div class="empty-state">Keine sonstigen Nachrichten.</div>'; return; }
+    el.innerHTML = otherMessages.map(otherMsgCardHtml).join("");
+    el.querySelectorAll("[data-msg-reply]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const m = otherMessages.find((x) => x.id === btn.dataset.msgReply);
+        if (!m) return;
+        openMailDraft(m.email || "", "Re: " + (m.subject || ""), "Hallo " + (m.name || "") + ",\n\n\n\nViele Grüße\nIhr EcoBin-Team");
+      });
+    });
+    el.querySelectorAll("[data-msg-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const msgId = btn.dataset.msgDelete;
+        openConfirmModal("Diese Nachricht wird aus dem Postfach entfernt und nicht mehr angezeigt.", async () => {
+          btn.disabled = true;
+          try {
+            await api("/api/admin/other-messages/" + encodeURIComponent(msgId) + "/dismiss", { method: "POST" });
+          } catch (e) {
+            // Fehler wird unten still ignoriert, Liste wird trotzdem lokal bereinigt
+          }
+          otherMessages = otherMessages.filter((x) => x.id !== msgId);
+          renderOtherMessages();
+        });
+      });
+    });
+  }
+
+  // ---------- Kunden ----------
+  let kuFilter = "all";
+  let kuSearch = "";
+  let currentKundenKey = null;
+
+  function buildCustomers() {
+    const map = new Map();
+    bookings.forEach((b) => {
+      const email = fieldVal(b, ["email"], "");
+      const key = (email || b.name || "").toLowerCase().trim();
+      if (!key) return;
+      if (!map.has(key)) {
+        map.set(key, { key: key, name: b.name || "Unbekannt", email: email, phone: fieldVal(b, ["phone", "telefon", "tel"], ""), bookings: [] });
+      }
+      map.get(key).bookings.push(b);
+    });
+    return Array.from(map.values());
+  }
+
+  function customerHasActiveAbo(c) {
+    return c.bookings.some((b) => b.abo && b.status === "accepted");
+  }
+
+  function kuFilteredList(list) {
+    let out = list;
+    if (kuFilter === "abo-active") out = out.filter(customerHasActiveAbo);
+    if (kuFilter === "no-abo") out = out.filter((c) => !customerHasActiveAbo(c));
+    if (kuSearch) {
+      const q = kuSearch.toLowerCase();
+      out = out.filter((c) => (c.name || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q));
+    }
+    return out;
+  }
+
+  function kuRowHtml(c) {
+    const activeAbo = customerHasActiveAbo(c);
+    return (
+      '<tr class="row-click" data-cuid="' + encodeURIComponent(c.key) + '">' +
+      '<td class="cust"><b>' + escapeHtml(c.name) + "</b></td>" +
+      "<td>" + escapeHtml(c.email || "–") + "</td>" +
+      "<td>" + c.bookings.length + "</td>" +
+      '<td><span class="pill ' + (activeAbo ? "pill-ok" : "pill-done") + '">' + (activeAbo ? "Abo aktiv" : "Kein Abo") + "</span></td>" +
+      "</tr>"
+    );
+  }
+
+  function renderKundenTable() {
+    const tableEl = document.getElementById("ku-table");
+    if (!tableEl) return;
+    const all = buildCustomers();
+    const filtered = kuFilteredList(all).slice().sort((a, c) => a.name.localeCompare(c.name));
+
+    const counts = {
+      all: all.length,
+      "abo-active": all.filter(customerHasActiveAbo).length,
+      "no-abo": all.filter((c) => !customerHasActiveAbo(c)).length,
+    };
+    Object.keys(counts).forEach((k) => {
+      const cntEl = document.getElementById("ku-cnt-" + k);
+      if (cntEl) cntEl.textContent = counts[k];
+    });
+    document.querySelectorAll("#ku-tabs .pf-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.kuFilter === kuFilter));
+
+    if (!filtered.length) { tableEl.innerHTML = '<div class="empty-state">Keine Kunden gefunden.</div>'; return; }
+    tableEl.innerHTML =
+      '<table class="tbl"><thead><tr><th>Kunde</th><th>E-Mail</th><th>Buchungen</th><th>Status</th></tr></thead><tbody>' +
+      filtered.map(kuRowHtml).join("") + "</tbody></table>";
+    tableEl.querySelectorAll("tr[data-cuid]").forEach((tr) => {
+      tr.addEventListener("click", () => showKundenDetail(decodeURIComponent(tr.dataset.cuid)));
+    });
+  }
+
+  document.querySelectorAll("#ku-tabs .pf-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      kuFilter = btn.dataset.kuFilter;
+      renderKundenTable();
+    });
+  });
+
+  document.getElementById("ku-search").addEventListener("input", (e) => {
+    kuSearch = e.target.value.trim();
+    renderKundenTable();
+  });
+
+  function renderKundenDetail(c) {
+    document.getElementById("ku-title").textContent = c.name;
+    document.getElementById("ku-sub").textContent = c.email || "";
+
+    const sortedBookings = c.bookings.slice().sort((a, b2) => (b2.createdAt || "").localeCompare(a.createdAt || ""));
+    const latest = sortedBookings[0] || {};
+
+    document.getElementById("ku-fields").innerHTML =
+      kdRowHtml("Name", escapeHtml(c.name)) +
+      kdRowHtml("E-Mail", escapeHtml(c.email || "–")) +
+      kdRowHtml("Telefon", escapeHtml(c.phone || "–")) +
+      kdRowHtml("Adresse", formatAddress(latest)) +
+      kdRowHtml("Anzahl Buchungen", String(c.bookings.length)) +
+      kdRowHtml("Abo-Status", customerHasActiveAbo(c) ? "Aktiv" : "Kein aktives Abo");
+
+    const rows = sortedBookings.map((b) => {
+      const st = statusInfo(b, todayIso());
+      return (
+        "<tr>" +
+        "<td>" + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</td>" +
+        "<td>" + formatDateDe(b.date) + "</td>" +
+        "<td>" + (b.abo ? "Monatsabo" : "Einmalzahlung") + "</td>" +
+        '<td class="price">' + formatEuro(b.amount) + "</td>" +
+        '<td><span class="pill ' + st.cls + '">' + st.label + "</span></td>" +
+        "</tr>"
+      );
+    }).join("");
+    document.getElementById("ku-bookings").innerHTML =
+      '<table class="tbl"><thead><tr><th>Buchungsdatum</th><th>Termin</th><th>Art</th><th>Betrag</th><th>Status</th></tr></thead><tbody>' + rows + "</tbody></table>";
+  }
+
+  function showKundenDetail(key) {
+    const c = buildCustomers().find((x) => x.key === key);
+    if (!c) return;
+    currentKundenKey = key;
+    document.querySelectorAll(".content").forEach((el) => { el.style.display = "none"; });
+    document.getElementById("view-kunden-detail").style.display = "block";
+    document.querySelectorAll(".sb-item").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === "kunden"));
+    document.getElementById("page-title").textContent = "Kunde";
+    document.getElementById("page-sub").textContent = "Kundendaten und Buchungen";
+    renderKundenDetail(c);
+  }
+
+  document.getElementById("ku-back").addEventListener("click", () => switchTab("kunden"));
+
+  document.getElementById("ku-delete-btn").addEventListener("click", () => {
+    const c = buildCustomers().find((x) => x.key === currentKundenKey);
+    if (!c) return;
+    openConfirmModal(
+      "Alle Daten von " + (c.name || c.email || "diesem Kunden") + " werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      () => {
+        const keyToDelete = currentKundenKey;
+        bookings = bookings.filter((b) => {
+          const email = fieldVal(b, ["email"], "");
+          const bKey = (email || b.name || "").toLowerCase().trim();
+          return bKey !== keyToDelete;
+        });
+        render();
+        switchTab("kunden");
+      }
+    );
+  });
+
+  // Start
+  if (token) {
+    api("/api/admin/bookings?status=pending").then(() => showApp()).catch(() => showLogin(false));
+  } else {
+    showLogin(false);
+  }
+})();
+</script>
+</body>
+</html>
