@@ -555,7 +555,7 @@
       <button class="small-btn modal-accept" id="bd-accept-btn">Annehmen</button>
       <button class="small-btn modal-danger" id="bd-reject-btn">Ablehnen</button>
     </div>
-    <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Ablehnen“ verschickt eine Info-E-Mail an den Kunden – eine Rückerstattung erfolgt NICHT automatisch. Bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
+    <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Annehmen“/„Ablehnen“ öffnet einen vorausgefüllten E-Mail-Entwurf in Gmail – die Mail wird NICHT automatisch verschickt, du musst sie selbst absenden. Eine Rückerstattung erfolgt bei „Ablehnen“ ebenfalls NICHT automatisch, bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
     <p class="bd-action-msg" id="bd-action-msg"></p>
     <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
   </div>
@@ -1305,6 +1305,19 @@
     if (e.target.id === "booking-detail-modal") closeBookingDetail();
   });
 
+  // Baut die Gmail-Compose-URL aus An/Betreff/Text, die der Worker beim
+  // Annehmen/Ablehnen zurückliefert (siehe decideBooking im Worker).
+  function buildGmailComposeUrl(email) {
+    const params = new URLSearchParams({
+      view: "cm",
+      fs: "1",
+      to: email.to || "",
+      su: email.subject || "",
+      body: email.text || "",
+    });
+    return "https://mail.google.com/mail/?" + params.toString();
+  }
+
   async function decideBookingDetail(action) {
     const uid = currentBookingDetailUid;
     const b = findBookingByUid(uid);
@@ -1315,10 +1328,18 @@
     const msg = document.getElementById("bd-action-msg");
     msg.className = "bd-action-msg";
     msg.textContent = "";
+
+    // Das Tab MUSS noch synchron im Klick-Kontext geöffnet werden, sonst
+    // blockieren viele Browser das Popup, weil der eigentliche Aufruf erst
+    // nach der (asynchronen) API-Antwort erfolgen würde. Die Ziel-URL wird
+    // gesetzt, sobald die Antwort mit dem E-Mail-Entwurf da ist.
+    const gmailTab = window.open("", "_blank");
+
     try {
       const idForApi = b.id != null ? b.id : uid;
       const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/" + action, { method: "POST" });
       if (res && res.error) {
+        if (gmailTab) gmailTab.close();
         msg.className = "bd-action-msg error";
         msg.textContent = res.error;
         acceptBtn.disabled = false; rejectBtn.disabled = false;
@@ -1326,12 +1347,26 @@
       }
       b.status = action === "accept" ? "accepted" : "rejected";
       msg.className = "bd-action-msg ok";
-      msg.textContent = action === "accept"
-        ? "Buchung angenommen – Bestätigungs-E-Mail wurde verschickt."
-        : "Buchung abgelehnt – Info-E-Mail wurde verschickt.";
+      if (res && res.email && res.email.to) {
+        if (gmailTab) {
+          gmailTab.location.href = buildGmailComposeUrl(res.email);
+        } else {
+          // Popup wurde vom Browser blockiert -> im selben Tab öffnen als Fallback
+          window.open(buildGmailComposeUrl(res.email), "_blank");
+        }
+        msg.textContent = action === "accept"
+          ? "Buchung angenommen – E-Mail-Entwurf wurde in Gmail geöffnet. Bitte prüfen und selbst absenden."
+          : "Buchung abgelehnt – E-Mail-Entwurf wurde in Gmail geöffnet. Bitte prüfen und selbst absenden.";
+      } else {
+        if (gmailTab) gmailTab.close();
+        msg.textContent = action === "accept"
+          ? "Buchung angenommen (keine E-Mail-Adresse hinterlegt, kein Entwurf erstellt)."
+          : "Buchung abgelehnt (keine E-Mail-Adresse hinterlegt, kein Entwurf erstellt).";
+      }
       render();
       setTimeout(closeBookingDetail, 900);
     } catch (e) {
+      if (gmailTab) gmailTab.close();
       msg.className = "bd-action-msg error";
       msg.textContent = "Fehler – bitte erneut versuchen.";
       acceptBtn.disabled = false; rejectBtn.disabled = false;
