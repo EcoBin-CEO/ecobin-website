@@ -180,6 +180,19 @@
   #bd-actions{margin-top:20px;justify-content:stretch}
   #bd-actions button{flex:1;padding:11px;justify-content:center;text-align:center}
   .bd-refund-hint{font-size:11.5px;color:var(--danger);background:var(--danger-bg);padding:9px 11px;border-radius:8px;margin-top:14px;line-height:1.5}
+  .pill-refund-required{background:#fdf3e0;color:#9a6700}
+  .pill-refunded{background:#e6f0fb;color:#1b5fa8}
+  .refund-box{margin-top:14px;padding:13px 14px;border-radius:10px;border:1px solid var(--line);background:#f9f9f6}
+  .refund-box h4{margin:0 0 8px;font-size:13px;font-weight:800}
+  .refund-box .refund-amount{font-size:19px;font-weight:800;color:var(--navy);margin:6px 0}
+  .refund-box .refund-note{font-size:11.5px;color:var(--muted);line-height:1.5;margin:6px 0 12px}
+  .refund-box .refund-actions{display:flex;flex-direction:column;gap:8px}
+  .refund-box .refund-actions .small-btn{width:100%;justify-content:center;text-align:center}
+  .refund-btn-paypal{background:#0a2f6b;border-color:#0a2f6b;color:#fff}
+  .refund-btn-paypal:hover{background:#08234f}
+  .refund-btn-done{background:var(--green-dark);border-color:var(--green-dark);color:#fff}
+  .refund-btn-done:hover{background:#0f3d29}
+  .refund-btn-done:disabled{background:#eef0ee;border-color:var(--line);color:var(--muted);cursor:default}
   .bd-action-msg{font-size:12.5px;margin-top:12px;padding:8px 11px;border-radius:8px;display:none}
   .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
   .bd-action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
@@ -556,6 +569,17 @@
       <button class="small-btn modal-danger" id="bd-reject-btn">Ablehnen</button>
     </div>
     <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Ablehnen“ verschickt eine Info-E-Mail an den Kunden – eine Rückerstattung erfolgt NICHT automatisch. Bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
+    <div class="refund-box" id="refund-box" style="display:none">
+      <h4>Rückerstattung</h4>
+      <p style="font-size:12px;color:var(--muted);margin:0">Diese Buchung wurde bereits bezahlt.</p>
+      <div class="refund-amount" id="refund-amount">–</div>
+      <span class="pill" id="refund-status-pill"></span>
+      <p class="refund-note" id="refund-note">Bei einer Ablehnung muss der bereits bezahlte Betrag manuell über PayPal zurückerstattet werden. EcoBin hat diesen Vorgang noch nicht selbst durchgeführt – die Software erstattet nichts automatisch.</p>
+      <div class="refund-actions">
+        <button class="small-btn refund-btn-paypal" id="refund-paypal-btn">💰 PayPal öffnen &amp; Rückerstattung durchführen</button>
+        <button class="small-btn refund-btn-done" id="refund-done-btn">✓ Rückerstattung durchgeführt</button>
+      </div>
+    </div>
     <p class="bd-action-msg" id="bd-action-msg"></p>
     <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
   </div>
@@ -568,6 +592,12 @@
   const USER_KEY = "ecobin_verwaltung_user";
   let token = sessionStorage.getItem(TOKEN_KEY) || "";
   let bookings = [];
+  // PayPal-Umgebung (live/sandbox) für den "PayPal öffnen"-Button bei
+  // Rückerstattungen; wird einmalig über /api/config geladen (siehe
+  // loadDashboard). Solange unbekannt, wird sicherheitshalber "live"
+  // angenommen (die reguläre PayPal-Übersichtsseite, kein Fake-Link).
+  let paypalEnv = "live";
+  let paypalEnvLoaded = false;
 
   const loginScreen = document.getElementById("login-screen");
   const app = document.getElementById("app");
@@ -607,6 +637,34 @@
   function todayIso() {
     const d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // Öffnet die PayPal-Übersichtsseite des eigenen Kontos, auf der die
+  // Zahlung manuell gesucht und erstattet werden kann. WICHTIG: Die
+  // Buchung speichert nur die PayPal-Order-/Subscription-ID (paypalRef),
+  // nicht die tatsächliche Transaktions-/Capture-ID, die für einen
+  // direkten Link zur einzelnen Zahlung nötig wäre. Ein direkter Link zur
+  // jeweiligen Transaktion wird deshalb bewusst NICHT konstruiert (siehe
+  // Erklärung im Chat) – stattdessen die reguläre Übersichtsseite.
+  function paypalTransactionsUrl() {
+    return paypalEnv === "live"
+      ? "https://www.paypal.com/myaccount/transactions/"
+      : "https://www.sandbox.paypal.com/myaccount/transactions/";
+  }
+
+  // Jede Buchung, die im Postfach zur Entscheidung ansteht, wurde laut
+  // Backend-Logik bereits erfolgreich bezahlt (siehe worker.js: ein
+  // Buchungsdatensatz wird erst nach captureOrder/confirmSubscription
+  // angelegt). Es gibt aktuell keinen Fall einer unbezahlten Buchung im
+  // Postfach – "bezahlt" ist daher keine Vermutung, sondern strukturell
+  // garantiert. refundStatus kommt dagegen direkt aus den Backend-Daten.
+  function isBookingPaid(b) {
+    return true;
+  }
+  function refundStatusInfo(b) {
+    if (b.refundStatus === "refunded") return { label: "Rückerstattet", cls: "pill-refunded", icon: "🔵" };
+    if (b.refundStatus === "required") return { label: "Rückerstattung erforderlich", cls: "pill-refund-required", icon: "🟠" };
+    return null;
   }
   function initialsOf(str) {
     str = (str || "").trim();
@@ -950,6 +1008,7 @@
   function mailCardHtml(b, todayI) {
     const st = statusInfo(b, todayI);
     const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    const rf = refundStatusInfo(b);
     return (
       '<div class="mail-card" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
       "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
@@ -958,6 +1017,7 @@
       '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
       '<div class="mail-row"><span class="k">Buchungsdatum</span><span class="v">' + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</span></div>" +
       '<div class="mail-row"><span class="k">Status</span><span class="pill ' + st.cls + '">' + st.label + "</span></div>" +
+      (rf ? '<div class="mail-row"><span class="k">Rückerstattung</span><span class="pill ' + rf.cls + '">' + rf.icon + " " + rf.label + "</span></div>" : "") +
       "</div>"
     );
   }
@@ -1058,6 +1118,15 @@
     btn.disabled = true; btn.textContent = "Lädt …";
     otherMessagesLoaded = false; // beim expliziten Neuladen auch Gmail-Nachrichten aktualisieren
     try {
+      if (!paypalEnvLoaded) {
+        try {
+          const cfg = await api("/api/config");
+          if (cfg && cfg.env) paypalEnv = cfg.env;
+          paypalEnvLoaded = true;
+        } catch (_) {
+          // Fällt bei Fehler auf den Default ("live") zurück; nicht kritisch.
+        }
+      }
       bookings = await api("/api/admin/bookings?status=all");
       if (!Array.isArray(bookings)) bookings = [];
       bookings.forEach((b, i) => { b._uid = b.id != null ? String(b.id) : String(i); });
@@ -1258,7 +1327,7 @@
       ["Buchungsdatum", formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null)],
       ["Buchungsart", buchungsart],
       ["Gesamtpreis", formatEuro(b.amount)],
-      ["Zahlungsstatus", "Bezahlt"],
+      ["Zahlungsstatus", "🟢 Bezahlt"],
       ["PayPal-Referenz", escapeHtml(fieldVal(b, ["paypalRef"], "–"))],
       ["Tonnen", b.binTypes ? escapeHtml(String(b.binTypes)) : "–"],
       ["Anzahl der Tonnen", b.bins != null ? escapeHtml(String(b.bins)) : "–"],
@@ -1288,12 +1357,83 @@
     const refundHint = document.getElementById("bd-refund-hint");
     const isPending = b.status === "pending";
     actions.style.display = isPending ? "flex" : "none";
+    // Der statische Hinweis erscheint nur VOR der Entscheidung (erinnert
+    // daran, dass "Ablehnen" keine automatische Rückerstattung auslöst).
     refundHint.style.display = isPending ? "block" : "none";
     document.getElementById("bd-accept-btn").disabled = false;
     document.getElementById("bd-reject-btn").disabled = false;
 
+    renderRefundBox(b);
+
     document.getElementById("booking-detail-modal").style.display = "flex";
   }
+
+  // Zeigt/aktualisiert den Rückerstattungsbereich für eine abgelehnte
+  // (und damit laut Datenmodell immer bereits bezahlte) Buchung.
+  function renderRefundBox(b) {
+    const box = document.getElementById("refund-box");
+    if (b.status !== "rejected" || !isBookingPaid(b)) {
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "block";
+    document.getElementById("refund-amount").textContent = "Rückerstattung: " + formatEuro(b.amount);
+
+    const rf = refundStatusInfo(b) || { label: "Rückerstattung erforderlich", cls: "pill-refund-required", icon: "🟠" };
+    const pill = document.getElementById("refund-status-pill");
+    pill.className = "pill " + rf.cls;
+    pill.textContent = rf.icon + " " + rf.label;
+
+    const doneBtn = document.getElementById("refund-done-btn");
+    const alreadyRefunded = b.refundStatus === "refunded";
+    doneBtn.disabled = alreadyRefunded;
+    doneBtn.textContent = alreadyRefunded ? "✓ Betrag bereits als rückerstattet markiert" : "✓ Rückerstattung durchgeführt";
+
+    const note = document.getElementById("refund-note");
+    note.textContent = alreadyRefunded
+      ? "Diese Buchung wurde bereits als rückerstattet markiert. Es wird über die Software keine zweite Rückerstattung ausgelöst."
+      : "Bei einer Ablehnung muss der bereits bezahlte Betrag manuell über PayPal zurückerstattet werden. Die Software hat noch keine Rückerstattung durchgeführt – „Rückerstattung noch nicht durchgeführt“.";
+  }
+
+  document.getElementById("refund-paypal-btn").addEventListener("click", () => {
+    // Öffnet ausschließlich die reguläre PayPal-Übersichtsseite des
+    // eigenen Kontos in einem neuen Tab. Kein direkter Transaktionslink,
+    // siehe Erklärung bei paypalTransactionsUrl().
+    window.open(paypalTransactionsUrl(), "_blank", "noopener");
+  });
+
+  document.getElementById("refund-done-btn").addEventListener("click", () => {
+    const uid = currentBookingDetailUid;
+    const b = findBookingByUid(uid);
+    if (!b || b.refundStatus === "refunded") return;
+    openConfirmModal(
+      "Hast du den Betrag von " + formatEuro(b.amount) + " tatsächlich über PayPal zurückerstattet?",
+      async () => {
+        const doneBtn = document.getElementById("refund-done-btn");
+        doneBtn.disabled = true;
+        try {
+          const idForApi = b.id != null ? b.id : uid;
+          const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/refund-confirm", { method: "POST" });
+          if (res && res.error) {
+            const msg = document.getElementById("bd-action-msg");
+            msg.className = "bd-action-msg error";
+            msg.textContent = res.error;
+            doneBtn.disabled = false;
+            return;
+          }
+          b.refundStatus = res.refundStatus || "refunded";
+          renderRefundBox(b);
+          render();
+        } catch (e) {
+          const msg = document.getElementById("bd-action-msg");
+          msg.className = "bd-action-msg error";
+          msg.textContent = "Fehler – bitte erneut versuchen.";
+          doneBtn.disabled = false;
+        }
+      },
+      { confirmLabel: "Ja, Rückerstattung wurde durchgeführt", confirmClass: "refund-btn-done" }
+    );
+  });
 
   function closeBookingDetail() {
     document.getElementById("booking-detail-modal").style.display = "none";
@@ -1325,12 +1465,24 @@
         return;
       }
       b.status = action === "accept" ? "accepted" : "rejected";
+      if (action === "reject" && res && res.refundStatus) b.refundStatus = res.refundStatus;
       msg.className = "bd-action-msg ok";
       msg.textContent = action === "accept"
         ? "Buchung angenommen – Bestätigungs-E-Mail wurde verschickt."
-        : "Buchung abgelehnt – Info-E-Mail wurde verschickt.";
+        : "Buchung abgelehnt – Info-E-Mail wurde verschickt. Rückerstattung noch nicht durchgeführt.";
       render();
-      setTimeout(closeBookingDetail, 900);
+      if (action === "reject") {
+        // Bei Ablehnung bleibt das Modal offen, damit die Person direkt den
+        // Rückerstattungs-Bereich (Betrag, PayPal-Button) sehen kann,
+        // statt es wie bisher automatisch zu schließen.
+        renderRefundBox(b);
+        document.getElementById("bd-status").className = "pill pill-rej";
+        document.getElementById("bd-status").textContent = "Storniert";
+        document.getElementById("bd-actions").style.display = "none";
+        document.getElementById("bd-refund-hint").style.display = "none";
+      } else {
+        setTimeout(closeBookingDetail, 900);
+      }
     } catch (e) {
       msg.className = "bd-action-msg error";
       msg.textContent = "Fehler – bitte erneut versuchen.";
@@ -1384,8 +1536,11 @@
 
   // ---------- Bestätigungs-Modal (generisch) ----------
   let confirmCallback = null;
-  function openConfirmModal(text, onConfirm) {
+  function openConfirmModal(text, onConfirm, opts) {
     document.getElementById("confirm-modal-text").textContent = text;
+    const confirmBtn = document.getElementById("confirm-modal-confirm");
+    confirmBtn.textContent = (opts && opts.confirmLabel) || "Ja, löschen";
+    confirmBtn.className = "small-btn " + ((opts && opts.confirmClass) || "modal-danger");
     confirmCallback = onConfirm;
     document.getElementById("confirm-modal").style.display = "flex";
   }
@@ -1629,3 +1784,4 @@
 </script>
 </body>
 </html>
+
