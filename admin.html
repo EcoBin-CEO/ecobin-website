@@ -131,7 +131,8 @@
   .cal-cell.has-events{background:var(--ok-bg)}
   .cal-cell.today{outline:2px solid var(--green);outline-offset:-2px}
   .cal-daynum{align-self:flex-end;font-size:13px;font-weight:700;color:var(--navy)}
-  .cal-event{background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;box-shadow:0 0 0 1px var(--line) inset}
+  .cal-event{background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;box-shadow:0 0 0 1px var(--line) inset;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .cal-event:hover{box-shadow:0 0 0 1px var(--navy-2) inset,0 2px 8px rgba(0,0,0,.08)}
   .cal-event-top{display:flex;align-items:center;gap:5px;margin-bottom:3px}
   .cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
   .cal-name{font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -183,6 +184,10 @@
   .bd-action-msg{font-size:12.5px;margin-top:12px;padding:8px 11px;border-radius:8px;display:none}
   .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
   .bd-action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
+  .bd-cancel-btn{width:100%;margin-top:18px;padding:12px 16px;border:1px solid var(--danger);background:var(--danger);color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .bd-cancel-btn:hover{background:#a81f1f}
+  .bd-cancel-btn:disabled{opacity:.6;cursor:not-allowed}
+  .bd-cancel-note{font-size:11px;color:var(--muted);margin:7px 0 0;text-align:center}
   .pf-section-title{font-size:15.5px;margin:0 0 12px;font-weight:800}
 
   /* ---------- Einstellungen: aufklappbare Kachel ---------- */
@@ -831,8 +836,21 @@
       <button class="small-btn modal-danger" id="bd-reject-btn">Ablehnen</button>
     </div>
     <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Annehmen“/„Ablehnen“ öffnet einen vorausgefüllten E-Mail-Entwurf in Gmail – die Mail wird NICHT automatisch verschickt, du musst sie selbst absenden. Eine Rückerstattung erfolgt bei „Ablehnen“ ebenfalls NICHT automatisch, bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
+    <button class="bd-cancel-btn" id="bd-cancel-btn" style="display:none">Termin nachträglich absagen</button>
+    <p class="bd-cancel-note" id="bd-cancel-note" style="display:none">Die Absage wird erst nach deiner Bestätigung ausgeführt.</p>
     <p class="bd-action-msg" id="bd-action-msg"></p>
     <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
+  </div>
+</div>
+
+<div id="bd-cancel-confirm-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Termin wirklich absagen?</h3>
+    <p id="bd-cancel-confirm-text">Möchtest du diesen Termin wirklich nachträglich absagen?</p>
+    <div class="modal-actions">
+      <button class="small-btn" id="bd-cancel-confirm-no">Abbrechen</button>
+      <button class="small-btn modal-danger" id="bd-cancel-confirm-yes">Ja, Termin absagen</button>
+    </div>
   </div>
 </div>
 
@@ -1209,6 +1227,7 @@
   wireEmailTemplateSave("et-rejected-save-btn", "et-rejected-save-msg");
 
   function statusInfo(b, todayI) {
+    if (b.status === "cancelled") return { label: "Abgesagt", cls: "pill-rej" };
     if (b.status === "rejected") return { label: "Storniert", cls: "pill-rej" };
     if (b.status === "pending") return { label: "Neu", cls: "pill-new" };
     if (b.status === "paused") return { label: "Pausiert", cls: "pill-pause" };
@@ -1299,7 +1318,7 @@
     const st = statusInfo(b, todayI);
     const dotColor = { "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)";
     return (
-      '<div class="cal-event">' +
+      '<div class="cal-event" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
       '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + "</span></div>" +
       '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status" style="color:' + dotColor + '">' + st.label + "</span></div>" +
       "</div>"
@@ -1343,6 +1362,9 @@
     }).join("");
 
     gridEl.innerHTML = html;
+    gridEl.querySelectorAll(".cal-event[data-uid]").forEach((el) => {
+      el.addEventListener("click", () => openBookingDetail(el.dataset.uid));
+    });
   }
 
   document.getElementById("cal-prev").addEventListener("click", () => {
@@ -1608,7 +1630,7 @@
 
     // Nächste Termine
     const upcoming = bookings
-      .filter((b) => b.status !== "rejected" && b.date && b.date >= todayI)
+      .filter((b) => b.status !== "rejected" && b.status !== "cancelled" && b.date && b.date >= todayI)
       .sort((a, c) => a.date.localeCompare(c.date))
       .slice(0, 6);
     renderTable("next-appointments", upcoming, todayI, "Keine bevorstehenden Termine.");
@@ -1784,9 +1806,14 @@
 
     const actions = document.getElementById("bd-actions");
     const refundHint = document.getElementById("bd-refund-hint");
+    const cancelBtn = document.getElementById("bd-cancel-btn");
+    const cancelNote = document.getElementById("bd-cancel-note");
     const isPending = b.status === "pending";
+    const isAccepted = b.status === "accepted";
     actions.style.display = isPending ? "flex" : "none";
     refundHint.style.display = isPending ? "block" : "none";
+    cancelBtn.style.display = isAccepted ? "block" : "none";
+    cancelNote.style.display = isAccepted ? "block" : "none";
     document.getElementById("bd-accept-btn").disabled = false;
     document.getElementById("bd-reject-btn").disabled = false;
 
@@ -1801,6 +1828,72 @@
   document.getElementById("bd-close-btn").addEventListener("click", closeBookingDetail);
   document.getElementById("booking-detail-modal").addEventListener("click", (e) => {
     if (e.target.id === "booking-detail-modal") closeBookingDetail();
+  });
+
+  // Schritt 3: Termin nachträglich absagen.
+  const cancelConfirmModal = document.getElementById("bd-cancel-confirm-modal");
+  document.getElementById("bd-cancel-btn").addEventListener("click", () => {
+    const b = findBookingByUid(currentBookingDetailUid);
+    if (!b || b.status !== "accepted") return;
+    document.getElementById("bd-cancel-confirm-text").textContent =
+      "Möchtest du den Termin am " + formatDateDe(b.date) + " für " + (b.name || "diesen Kunden") + " wirklich nachträglich absagen?";
+    cancelConfirmModal.style.display = "flex";
+  });
+  document.getElementById("bd-cancel-confirm-no").addEventListener("click", () => {
+    cancelConfirmModal.style.display = "none";
+  });
+  cancelConfirmModal.addEventListener("click", (e) => {
+    if (e.target.id === "bd-cancel-confirm-modal") cancelConfirmModal.style.display = "none";
+  });
+  document.getElementById("bd-cancel-confirm-yes").addEventListener("click", async () => {
+    const uid = currentBookingDetailUid;
+    const b = findBookingByUid(uid);
+    if (!b || b.status !== "accepted") {
+      cancelConfirmModal.style.display = "none";
+      return;
+    }
+    const yesBtn = document.getElementById("bd-cancel-confirm-yes");
+    const noBtn = document.getElementById("bd-cancel-confirm-no");
+    const msg = document.getElementById("bd-action-msg");
+    yesBtn.disabled = true;
+    noBtn.disabled = true;
+    msg.className = "bd-action-msg";
+    msg.textContent = "Termin wird abgesagt …";
+    // Gmail-Tab synchron zum Klick öffnen, damit der Browser das Popup nicht blockiert.
+    const gmailTab = window.open("", "_blank");
+    try {
+      const idForApi = b.id != null ? b.id : uid;
+      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/cancel", { method: "POST" });
+      if (res && res.error) {
+        if (gmailTab) gmailTab.close();
+        throw new Error(res.error);
+      }
+      b.status = "cancelled";
+      b.cancelledAt = (res && res.booking && res.booking.cancelledAt) || new Date().toISOString();
+      cancelConfirmModal.style.display = "none";
+      msg.className = "bd-action-msg ok";
+      msg.textContent = "Termin wurde erfolgreich abgesagt.";
+      render();
+
+      // Nach erfolgreicher Absage den vom Worker erzeugten Gmail-Entwurf öffnen.
+      if (res && res.email && res.email.to) {
+        const gmailUrl = buildGmailComposeUrl(res.email);
+        if (gmailTab) {
+          gmailTab.location.href = gmailUrl;
+        } else {
+          window.open(gmailUrl, "_blank");
+        }
+      } else if (gmailTab) {
+        gmailTab.close();
+      }
+
+      setTimeout(closeBookingDetail, 700);
+    } catch (e) {
+      yesBtn.disabled = false;
+      noBtn.disabled = false;
+      msg.className = "bd-action-msg error";
+      msg.textContent = e && e.message ? e.message : "Absage fehlgeschlagen.";
+    }
   });
 
   // Baut die Gmail-Compose-URL aus An/Betreff/Text, die der Worker beim
