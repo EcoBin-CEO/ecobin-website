@@ -749,6 +749,55 @@
             </div>
           </div>
         </div>
+
+        <div class="settings-tile" id="settings-email-vorlagen">
+          <div class="settings-tile-head" data-settings-toggle="settings-email-vorlagen">
+            <div class="settings-tile-icon">✉️</div>
+            <div class="settings-tile-title">
+              <b>E-Mail-Vorlagen</b>
+              <span>Texte für Buchung angenommen / abgelehnt</span>
+            </div>
+            <div class="settings-tile-chev">▾</div>
+          </div>
+          <div class="settings-tile-body">
+            <div class="settings-tile-inner">
+              <p class="et-status" id="et-status" style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Lädt …</p>
+              <div id="et-fields-wrap" style="display:none">
+
+                <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px">Platzhalter für vorhandene Kundendaten: <code>{{name}}</code> <code>{{datum}}</code> <code>{{tonnen}}</code> <code>{{extras}}</code> <code>{{art}}</code> <code>{{preis}}</code> <code>{{adresse}}</code></p>
+
+                <div class="field"><label>Buchung angenommen</label></div>
+                <div class="field">
+                  <label for="et-accepted-subject">Betreff</label>
+                  <input type="text" id="et-accepted-subject">
+                </div>
+                <div class="field">
+                  <label for="et-accepted-body">Nachricht</label>
+                  <textarea id="et-accepted-body" rows="6"></textarea>
+                </div>
+                <div class="settings-actions">
+                  <button class="settings-save-btn" id="et-accepted-save-btn">Speichern</button>
+                  <span class="settings-save-msg" id="et-accepted-save-msg">✓ Gespeichert</span>
+                </div>
+
+                <div class="field" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)"><label>Buchung abgelehnt</label></div>
+                <div class="field">
+                  <label for="et-rejected-subject">Betreff</label>
+                  <input type="text" id="et-rejected-subject">
+                </div>
+                <div class="field">
+                  <label for="et-rejected-body">Nachricht</label>
+                  <textarea id="et-rejected-body" rows="6"></textarea>
+                </div>
+                <div class="settings-actions">
+                  <button class="settings-save-btn" id="et-rejected-save-btn">Speichern</button>
+                  <span class="settings-save-msg" id="et-rejected-save-msg">✓ Gespeichert</span>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
 
       <main class="content" id="view-placeholder" style="display:none">
@@ -981,6 +1030,7 @@
       if (el) el.value = settings[key] || "";
     });
     loadPreise();
+    loadEmailVorlagen();
   }
   document.querySelectorAll("[data-settings-toggle]").forEach((head) => {
     head.addEventListener("click", () => {
@@ -1075,6 +1125,88 @@
       }
     });
   }
+
+  // ---------- E-Mail-Vorlagen ----------
+  const ET_FIELDS = {
+    booking_accepted: { subject: "et-accepted-subject", body: "et-accepted-body" },
+    booking_rejected: { subject: "et-rejected-subject", body: "et-rejected-body" },
+  };
+  async function loadEmailVorlagen() {
+    const statusEl = document.getElementById("et-status");
+    const wrap = document.getElementById("et-fields-wrap");
+    if (!statusEl || !wrap) return;
+    statusEl.textContent = "Lädt …";
+    statusEl.style.display = "block";
+    wrap.style.display = "none";
+    try {
+      const templates = await api("/api/admin/email-templates");
+      if (templates && templates.error) throw new Error(templates.error);
+      Object.keys(ET_FIELDS).forEach((type) => {
+        const tpl = (templates && templates[type]) || {};
+        const subjEl = document.getElementById(ET_FIELDS[type].subject);
+        const bodyEl = document.getElementById(ET_FIELDS[type].body);
+        if (subjEl) subjEl.value = tpl.subject || "";
+        if (bodyEl) bodyEl.value = tpl.body || "";
+      });
+      statusEl.style.display = "none";
+      wrap.style.display = "block";
+    } catch (e) {
+      statusEl.textContent = "E-Mail-Vorlagen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+    }
+  }
+  function collectEmailTemplates() {
+    const values = {};
+    Object.keys(ET_FIELDS).forEach((type) => {
+      const subjEl = document.getElementById(ET_FIELDS[type].subject);
+      const bodyEl = document.getElementById(ET_FIELDS[type].body);
+      values[type] = {
+        subject: subjEl ? subjEl.value : "",
+        body: bodyEl ? bodyEl.value : "",
+      };
+    });
+    return values;
+  }
+  function wireEmailTemplateSave(btnId, msgId) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      // Beide Vorlagen werden immer zusammen gesendet, da die API
+      // beide Vorlagen auf einmal speichert (sonst würde die jeweils
+      // andere Vorlage mit leeren Werten überschrieben).
+      const values = collectEmailTemplates();
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Speichert …";
+      try {
+        const updated = await api("/api/admin/email-templates", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        if (updated && updated.error) throw new Error(updated.error);
+        Object.keys(ET_FIELDS).forEach((type) => {
+          const tpl = (updated && updated[type]) || {};
+          const subjEl = document.getElementById(ET_FIELDS[type].subject);
+          const bodyEl = document.getElementById(ET_FIELDS[type].body);
+          if (subjEl) subjEl.value = tpl.subject || "";
+          if (bodyEl) bodyEl.value = tpl.body || "";
+        });
+        const msg = document.getElementById(msgId);
+        if (msg) {
+          msg.classList.add("show");
+          clearTimeout(btn._msgTimeout);
+          btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
+        }
+      } catch (e) {
+        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    });
+  }
+  wireEmailTemplateSave("et-accepted-save-btn", "et-accepted-save-msg");
+  wireEmailTemplateSave("et-rejected-save-btn", "et-rejected-save-msg");
 
   function statusInfo(b, todayI) {
     if (b.status === "rejected") return { label: "Storniert", cls: "pill-rej" };
