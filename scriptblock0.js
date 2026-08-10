@@ -479,7 +479,7 @@
 
     const todayI = todayIso();
     const byDate = {};
-    bookings.filter((b) => b.date && b.status !== "rejected").forEach((b) => {
+    bookings.filter((b) => b.date && b.status !== "rejected" && b.status !== "cancelled").forEach((b) => {
       (byDate[b.date] = byDate[b.date] || []).push(b);
     });
 
@@ -975,69 +975,111 @@
   });
 
   // Schritt 3: Termin nachträglich absagen.
+  // Jeder Absagevorgang besitzt einen eigenen, kurzen UI-Lock. Dadurch kann
+  // ein Doppelklick keinen zweiten Request für dieselbe Buchung auslösen und
+  // ein vorheriger Absagevorgang kann den nächsten nicht blockieren.
   const cancelConfirmModal = document.getElementById("bd-cancel-confirm-modal");
+  let cancelInProgressUid = null;
+
   document.getElementById("bd-cancel-btn").addEventListener("click", () => {
-    const b = findBookingByUid(currentBookingDetailUid);
-    if (!b || b.status !== "accepted") return;
+    const uid = currentBookingDetailUid;
+    const b = findBookingByUid(uid);
+    if (!uid || !b || b.status !== "accepted" || cancelInProgressUid !== null) return;
+
     document.getElementById("bd-cancel-confirm-text").textContent =
       "Möchtest du den Termin am " + formatDateDe(b.date) + " für " + (b.name || "diesen Kunden") + " wirklich nachträglich absagen?";
     cancelConfirmModal.style.display = "flex";
   });
+
   document.getElementById("bd-cancel-confirm-no").addEventListener("click", () => {
+    if (cancelInProgressUid !== null) return;
     cancelConfirmModal.style.display = "none";
   });
+
   cancelConfirmModal.addEventListener("click", (e) => {
-    if (e.target.id === "bd-cancel-confirm-modal") cancelConfirmModal.style.display = "none";
+    if (e.target.id === "bd-cancel-confirm-modal" && cancelInProgressUid === null) {
+      cancelConfirmModal.style.display = "none";
+    }
   });
+
   document.getElementById("bd-cancel-confirm-yes").addEventListener("click", async () => {
+    // UID sofort festhalten. Niemals während des Requests erneut aus
+    // currentBookingDetailUid lesen, weil die Detailansicht inzwischen
+    // geschlossen oder ein anderer Termin geöffnet werden könnte.
     const uid = currentBookingDetailUid;
+    if (!uid || cancelInProgressUid !== null) return;
+
     const b = findBookingByUid(uid);
     if (!b || b.status !== "accepted") {
       cancelConfirmModal.style.display = "none";
       return;
     }
+
+    cancelInProgressUid = String(uid);
+
     const yesBtn = document.getElementById("bd-cancel-confirm-yes");
     const noBtn = document.getElementById("bd-cancel-confirm-no");
     const msg = document.getElementById("bd-action-msg");
+
     yesBtn.disabled = true;
     noBtn.disabled = true;
     msg.className = "bd-action-msg";
     msg.textContent = "Termin wird abgesagt …";
-    // Gmail-Tab synchron zum Klick öffnen, damit der Browser das Popup nicht blockiert.
-    const gmailTab = window.open("", "_blank");
+
     try {
       const idForApi = b.id != null ? b.id : uid;
-      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/cancel", { method: "POST" });
-      if (res && res.error) {
-        if (gmailTab) gmailTab.close();
-        throw new Error(res.error);
+      const res = await api(
+        "/api/admin/bookings/" + encodeURIComponent(idForApi) + "/cancel",
+        { method: "POST" }
+      );
+
+      // api() liefert auch bei fachlichen Fehlern ein JSON-Objekt zurück.
+      if (!res || res.error) {
+        throw new Error((res && res.error) || "Absage fehlgeschlagen.");
       }
+
+      // Erst jetzt den lokalen Datensatz ändern. Damit bleibt die UI bei
+      // einem API-/Netzwerkfehler vollständig unverändert und erneut nutzbar.
       b.status = "cancelled";
-      b.cancelledAt = (res && res.booking && res.booking.cancelledAt) || new Date().toISOString();
+      b.cancelledAt =
+        (res.booking && res.booking.cancelledAt) || new Date().toISOString();
+
+      // Beide Dialoge sofort und vollständig zurücksetzen. Der nächste
+      // Termin kann dadurch unmittelbar geöffnet werden.
       cancelConfirmModal.style.display = "none";
-      msg.className = "bd-action-msg ok";
-      msg.textContent = "Termin wurde erfolgreich abgesagt.";
+      document.getElementById("booking-detail-modal").style.display = "none";
+      currentBookingDetailUid = null;
+
+      // Neu rendern, damit der abgesagte Termin aus dem Kalender und allen
+      // aktiven Terminansichten verschwindet. Die Buchung selbst bleibt im
+      // lokalen Array und damit in der Historie erhalten.
       render();
 
-      // Nach erfolgreicher Absage den vom Worker erzeugten Gmail-Entwurf öffnen.
-      if (res && res.email && res.email.to) {
-        const gmailUrl = buildGmailComposeUrl(res.email);
-        if (gmailTab) {
-          gmailTab.location.href = gmailUrl;
-        } else {
-          window.open(gmailUrl, "_blank");
+      // Gmail ist bewusst NICHT Teil des kritischen Absagepfades.
+      // Erst nach erfolgreicher API-Antwort wird der Compose-Dialog versucht.
+      // Wenn der Browser das Popup blockiert, bleibt die Absage trotzdem
+      // erfolgreich und gespeichert.
+      if (res.email && res.email.to) {
+        try {
+          const gmailUrl = buildGmailComposeUrl(res.email);
+          window.open(gmailUrl, "_blank", "noopener,noreferrer");
+        } catch (_) {
+          // Popup-/Browserfehler dürfen die bereits erfolgreiche Absage
+          // niemals wieder in einen Fehlerzustand versetzen.
         }
-      } else if (gmailTab) {
-        gmailTab.close();
       }
-
-      setTimeout(closeBookingDetail, 700);
     } catch (e) {
-      if (gmailTab) gmailTab.close();
-      yesBtn.disabled = false;
-      noBtn.disabled = false;
+      // Bei Fehlern bleibt die Detailansicht offen und kann nach dem
+      // Zurücksetzen der Buttons sofort erneut verwendet werden.
       msg.className = "bd-action-msg error";
       msg.textContent = e && e.message ? e.message : "Absage fehlgeschlagen.";
+      cancelConfirmModal.style.display = "none";
+    } finally {
+      // Entscheidend für Termin B/C/...: Der Lock gehört ausschließlich
+      // zu diesem einen Request und wird IMMER freigegeben.
+      cancelInProgressUid = null;
+      yesBtn.disabled = false;
+      noBtn.disabled = false;
     }
   });
 
