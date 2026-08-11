@@ -63,6 +63,9 @@
       address: d.get("address"),
       note: d.get("note") || "",
       email: d.get("email") || "",
+      discountCode: String(d.get("discountCode") || "").trim().toUpperCase(),
+      discountPercent: Number(d.get("discountPercent")) || 0,
+      amountBeforeDiscount: Number(d.get("discountBaseAmount")) || 0,
     };
   }
 
@@ -152,13 +155,16 @@
     window.ppOrders
       .Buttons({
         createOrder: async function () {
+          const booking = collectBooking();
           const amount = amountFromText(document.querySelector("#payment-price")?.textContent);
           const res = await fetch(WORKER_URL + "/api/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: amount, description: "EcoBin Mülltonnenreinigung", booking: collectBooking() }),
+            body: JSON.stringify({ amount: amount, amountBeforeDiscount: booking.amountBeforeDiscount, discountCode: booking.discountCode, description: "EcoBin Mülltonnenreinigung", booking }),
           });
-          return (await res.json()).id;
+          const data = await res.json();
+          if (!res.ok || !data.id) throw new Error(data.error || "Bestellung konnte nicht erstellt werden.");
+          return data.id;
         },
         onApprove: async function (data) {
           await fetch(WORKER_URL + "/api/orders/" + data.orderID + "/capture", {
@@ -188,11 +194,12 @@
     window.ppSubs
       .Buttons({
         createSubscription: async function () {
+          const booking = collectBooking();
           const amount = amountFromText(document.querySelector("#payment-price")?.textContent);
           const res = await fetch(WORKER_URL + "/api/subscriptions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount, booking: collectBooking() }),
+            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount, amountBeforeDiscount: booking.amountBeforeDiscount, discountCode: booking.discountCode, booking }),
           });
           const sub = await res.json();
           if (!sub.id) {
