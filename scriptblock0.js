@@ -479,7 +479,7 @@
 
     const todayI = todayIso();
     const byDate = {};
-    bookings.filter((b) => b.date && b.status !== "rejected" && b.status !== "cancelled").forEach((b) => {
+    bookings.filter((b) => b.date && b.status !== "rejected").forEach((b) => {
       (byDate[b.date] = byDate[b.date] || []).push(b);
     });
 
@@ -954,6 +954,7 @@
     const cancelNote = document.getElementById("bd-cancel-note");
     const isPending = b.status === "pending";
     const isAccepted = b.status === "accepted";
+    resetCancelConfirmState();
     actions.style.display = isPending ? "flex" : "none";
     refundHint.style.display = isPending ? "block" : "none";
     cancelBtn.style.display = isAccepted ? "block" : "none";
@@ -975,111 +976,113 @@
   });
 
   // Schritt 3: Termin nachträglich absagen.
-  // Jeder Absagevorgang besitzt einen eigenen, kurzen UI-Lock. Dadurch kann
-  // ein Doppelklick keinen zweiten Request für dieselbe Buchung auslösen und
-  // ein vorheriger Absagevorgang kann den nächsten nicht blockieren.
   const cancelConfirmModal = document.getElementById("bd-cancel-confirm-modal");
-  let cancelInProgressUid = null;
+  const cancelConfirmYes = document.getElementById("bd-cancel-confirm-yes");
+  const cancelConfirmNo = document.getElementById("bd-cancel-confirm-no");
+  let cancelInProgress = false;
+
+  function resetCancelConfirmState() {
+    cancelInProgress = false;
+    cancelConfirmYes.disabled = false;
+    cancelConfirmNo.disabled = false;
+    cancelConfirmModal.style.display = "none";
+  }
 
   document.getElementById("bd-cancel-btn").addEventListener("click", () => {
     const uid = currentBookingDetailUid;
     const b = findBookingByUid(uid);
-    if (!uid || !b || b.status !== "accepted" || cancelInProgressUid !== null) return;
+    if (!uid || !b || b.status !== "accepted" || cancelInProgress) return;
 
     document.getElementById("bd-cancel-confirm-text").textContent =
       "Möchtest du den Termin am " + formatDateDe(b.date) + " für " + (b.name || "diesen Kunden") + " wirklich nachträglich absagen?";
+
+    // Jeder neue Absagevorgang startet mit einem frischen, aktivierten Dialog.
+    cancelConfirmYes.disabled = false;
+    cancelConfirmNo.disabled = false;
+    cancelInProgress = false;
     cancelConfirmModal.style.display = "flex";
   });
 
-  document.getElementById("bd-cancel-confirm-no").addEventListener("click", () => {
-    if (cancelInProgressUid !== null) return;
-    cancelConfirmModal.style.display = "none";
-  });
+  cancelConfirmNo.addEventListener("click", resetCancelConfirmState);
 
   cancelConfirmModal.addEventListener("click", (e) => {
-    if (e.target.id === "bd-cancel-confirm-modal" && cancelInProgressUid === null) {
-      cancelConfirmModal.style.display = "none";
+    if (e.target.id === "bd-cancel-confirm-modal" && !cancelInProgress) {
+      resetCancelConfirmState();
     }
   });
 
-  document.getElementById("bd-cancel-confirm-yes").addEventListener("click", async () => {
-    // UID sofort festhalten. Niemals während des Requests erneut aus
-    // currentBookingDetailUid lesen, weil die Detailansicht inzwischen
-    // geschlossen oder ein anderer Termin geöffnet werden könnte.
+  cancelConfirmYes.addEventListener("click", async () => {
+    // UID sofort lokal sichern. Danach wird ausschließlich mit diesem
+    // Vorgang gearbeitet; ein späterer Zustand von currentBookingDetailUid
+    // kann diesen Vorgang nicht mehr beeinflussen.
     const uid = currentBookingDetailUid;
-    if (!uid || cancelInProgressUid !== null) return;
-
     const b = findBookingByUid(uid);
-    if (!b || b.status !== "accepted") {
-      cancelConfirmModal.style.display = "none";
+
+    if (!uid || !b || b.status !== "accepted" || cancelInProgress) {
+      resetCancelConfirmState();
       return;
     }
 
-    cancelInProgressUid = String(uid);
+    cancelInProgress = true;
+    cancelConfirmYes.disabled = true;
+    cancelConfirmNo.disabled = true;
 
-    const yesBtn = document.getElementById("bd-cancel-confirm-yes");
-    const noBtn = document.getElementById("bd-cancel-confirm-no");
     const msg = document.getElementById("bd-action-msg");
-
-    yesBtn.disabled = true;
-    noBtn.disabled = true;
     msg.className = "bd-action-msg";
     msg.textContent = "Termin wird abgesagt …";
 
     try {
       const idForApi = b.id != null ? b.id : uid;
+
+      // Gmail wird bewusst NICHT vor der API geöffnet. Dadurch kann ein
+      // Popup-Blocker die eigentliche Absage niemals beeinflussen.
       const res = await api(
         "/api/admin/bookings/" + encodeURIComponent(idForApi) + "/cancel",
         { method: "POST" }
       );
 
-      // api() liefert auch bei fachlichen Fehlern ein JSON-Objekt zurück.
-      if (!res || res.error) {
-        throw new Error((res && res.error) || "Absage fehlgeschlagen.");
+      if (!res || res.error || res.status !== "cancelled") {
+        throw new Error((res && res.error) || "Die Absage konnte nicht bestätigt werden.");
       }
 
-      // Erst jetzt den lokalen Datensatz ändern. Damit bleibt die UI bei
-      // einem API-/Netzwerkfehler vollständig unverändert und erneut nutzbar.
+      // Lokalen Datensatz sofort dauerhaft auf cancelled setzen.
       b.status = "cancelled";
       b.cancelledAt =
         (res.booking && res.booking.cancelledAt) || new Date().toISOString();
 
-      // Beide Dialoge sofort und vollständig zurücksetzen. Der nächste
-      // Termin kann dadurch unmittelbar geöffnet werden.
+      // Dialog und Detailansicht vollständig schließen/zurücksetzen, bevor
+      // neu gerendert wird. Damit ist der nächste Termin unabhängig.
       cancelConfirmModal.style.display = "none";
-      document.getElementById("booking-detail-modal").style.display = "none";
       currentBookingDetailUid = null;
+      document.getElementById("booking-detail-modal").style.display = "none";
 
-      // Neu rendern, damit der abgesagte Termin aus dem Kalender und allen
-      // aktiven Terminansichten verschwindet. Die Buchung selbst bleibt im
-      // lokalen Array und damit in der Historie erhalten.
+      // Alle Absage-Controls für den nächsten Vorgang explizit zurücksetzen.
+      cancelConfirmYes.disabled = false;
+      cancelConfirmNo.disabled = false;
+      cancelInProgress = false;
+
+      // Kalender/Dashboard neu rendern; cancelled wird dort nicht mehr aktiv
+      // angezeigt. Der Datensatz bleibt in bookings/KV erhalten.
       render();
 
-      // Gmail ist bewusst NICHT Teil des kritischen Absagepfades.
-      // Erst nach erfolgreicher API-Antwort wird der Compose-Dialog versucht.
-      // Wenn der Browser das Popup blockiert, bleibt die Absage trotzdem
-      // erfolgreich und gespeichert.
+      // Gmail ist nur ein optionaler Folge-Schritt. Wenn der Browser das
+      // Fenster blockiert, bleibt die bereits erfolgreiche Absage bestehen.
       if (res.email && res.email.to) {
+        const gmailUrl = buildGmailComposeUrl(res.email);
         try {
-          const gmailUrl = buildGmailComposeUrl(res.email);
-          window.open(gmailUrl, "_blank", "noopener,noreferrer");
+          window.open(gmailUrl, "_blank");
         } catch (_) {
-          // Popup-/Browserfehler dürfen die bereits erfolgreiche Absage
-          // niemals wieder in einen Fehlerzustand versetzen.
+          // Popup-Blockierung darf die erfolgreiche Absage nicht rückgängig machen.
         }
       }
     } catch (e) {
-      // Bei Fehlern bleibt die Detailansicht offen und kann nach dem
-      // Zurücksetzen der Buttons sofort erneut verwendet werden.
+      // Bei API-/Netzwerkfehlern bleibt die Buchung lokal unverändert.
+      // Der Dialog bleibt sichtbar und kann erneut versucht werden.
+      cancelConfirmYes.disabled = false;
+      cancelConfirmNo.disabled = false;
+      cancelInProgress = false;
       msg.className = "bd-action-msg error";
       msg.textContent = e && e.message ? e.message : "Absage fehlgeschlagen.";
-      cancelConfirmModal.style.display = "none";
-    } finally {
-      // Entscheidend für Termin B/C/...: Der Lock gehört ausschließlich
-      // zu diesem einen Request und wird IMMER freigegeben.
-      cancelInProgressUid = null;
-      yesBtn.disabled = false;
-      noBtn.disabled = false;
     }
   });
 
