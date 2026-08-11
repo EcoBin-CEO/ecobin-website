@@ -1,3 +1,4 @@
+
 (function () {
   const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
   const TOKEN_KEY = "ecobin_verwaltung_token";
@@ -122,6 +123,11 @@
   // Navigation
   document.querySelectorAll("[data-tab]").forEach((el) => {
     el.addEventListener("click", () => switchTab(el.dataset.tab));
+    if (el.classList.contains("stat-card-clickable")) {
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); switchTab(el.dataset.tab); }
+      });
+    }
   });
   function switchTab(tab) {
     document.querySelectorAll(".sb-item").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
@@ -192,6 +198,7 @@
       if (el) el.value = settings[key] || "";
     });
     loadPreise();
+    loadDiscountCodes();
     loadEmailVorlagen();
   }
   document.querySelectorAll("[data-settings-toggle]").forEach((head) => {
@@ -230,12 +237,26 @@
   }
   function normalizeLocalTestBookings(){
     const list=getLocalTestBookings(); let changed=false;
-    list.forEach(b=>{if(!b._testData)return; if(b.email!==TEST_EMAIL){b.email=TEST_EMAIL;changed=true;} if(!b.date){b.date=b.cleaningDate||b.desiredDate||todayIso();changed=true;} if(b.amount==null){b.amount=Number(b.totalPrice||b.price||25);changed=true;} if(!b.bookingType){b.bookingType=b.abo?"Monatsabo":"Einzelbuchung";changed=true;} if(!b.status){b.status="pending";changed=true;}});
+    list.forEach(b=>{
+      if(!b._testData)return;
+      if(b.email!==TEST_EMAIL){b.email=TEST_EMAIL;changed=true;}
+      if(!b.date){b.date=b.cleaningDate||b.desiredDate||todayIso();changed=true;}
+      if(b.amount==null){b.amount=Number(b.totalPrice||b.price||25);changed=true;}
+      if(!b.bookingType){b.bookingType=b.abo?"Monatsabo":"Einzelbuchung";changed=true;}
+      if(!b.status){b.status="pending";changed=true;}
+      if(!b.address){b.address="Teststraße 1, 00000 Testort";changed=true;}
+      if(!b.binTypes){b.binTypes="Biotonne";changed=true;}
+      if(b.bins==null){b.bins=1;changed=true;}
+      if(!b.extras){b.extras="keine";changed=true;}
+      if(b.paymentStatus!=="Testzahlung – kein echtes Geld"){b.paymentStatus="Testzahlung – kein echtes Geld";changed=true;}
+      if(b.paypalRef!=="TEST-NO-PAYPAL"){b.paypalRef="TEST-NO-PAYPAL";changed=true;}
+      if(b.abo && b.nextCleaningDate===undefined){b.nextCleaningDate=b.date;changed=true;}
+    });
     if(changed)saveLocalTestBookings(list);
   }
   function createLocalTestBooking(isAbo){
     const id=(isAbo?"TEST-ABO-":"TEST-")+Date.now();
-    const booking={id,_uid:id,_testData:true,name:"EcoBin Testkunde",email:TEST_EMAIL,address:"Teststraße 1, 00000 Testort",date:todayIso(),desiredDate:todayIso(),cleaningDate:todayIso(),amount:25,totalPrice:25,price:25,status:"pending",paymentStatus:"Testzahlung – kein echtes Geld",bookingType:isAbo?"Monatsabo":"Einzelbuchung",abo:!!isAbo,createdAt:new Date().toISOString(),notes:"Automatisch erzeugte Testbuchung. Keine echte PayPal-Zahlung.",paypalRef:"TEST-NO-PAYPAL"};
+    const booking={id,_uid:id,_testData:true,name:"EcoBin Testkunde",email:TEST_EMAIL,address:"Teststraße 1, 00000 Testort",date:todayIso(),desiredDate:todayIso(),cleaningDate:todayIso(),amount:25,totalPrice:25,price:25,status:"pending",paymentStatus:"Testzahlung – kein echtes Geld",bookingType:isAbo?"Monatsabo":"Einzelbuchung",abo:!!isAbo,createdAt:new Date().toISOString(),notes:"Automatisch erzeugte Testbuchung. Keine echte PayPal-Zahlung.",note:"Automatisch erzeugte Testbuchung. Keine echte PayPal-Zahlung.",paypalRef:"TEST-NO-PAYPAL",binTypes:"Biotonne",bins:1,extras:"keine",discountCode:"",discountPercent:0,discountAmount:0,nextCleaningDate:isAbo?todayIso():null};
     saveLocalTestBooking(booking); bookings=[booking].concat(bookings||[]); render();
     addTestAction((isAbo?"Test-Abo":"Testbuchung")+" erstellt ("+id+")");
     showToast((isAbo?"Test-Abo":"Testbuchung")+" erstellt – kann jetzt wie eine normale Buchung behandelt werden.");
@@ -315,87 +336,221 @@
     });
   }
 
-  // ---------- E-Mail-Vorlagen ----------
-  const ET_FIELDS = {
-    booking_accepted: { subject: "et-accepted-subject", body: "et-accepted-body" },
-    booking_rejected: { subject: "et-rejected-subject", body: "et-rejected-body" },
-  };
-  async function loadEmailVorlagen() {
-    const statusEl = document.getElementById("et-status");
-    const wrap = document.getElementById("et-fields-wrap");
-    if (!statusEl || !wrap) return;
+  // ---------- Rabattcodes ----------
+  async function loadDiscountCodes() {
+    const statusEl = document.getElementById("dc-status");
+    const wrap = document.getElementById("dc-wrap");
+    const listEl = document.getElementById("dc-list");
+    if (!statusEl || !wrap || !listEl) return;
     statusEl.textContent = "Lädt …";
     statusEl.style.display = "block";
     wrap.style.display = "none";
     try {
-      const templates = await api("/api/admin/email-templates");
-      if (templates && templates.error) throw new Error(templates.error);
-      Object.keys(ET_FIELDS).forEach((type) => {
-        const tpl = (templates && templates[type]) || {};
-        const subjEl = document.getElementById(ET_FIELDS[type].subject);
-        const bodyEl = document.getElementById(ET_FIELDS[type].body);
-        if (subjEl) subjEl.value = tpl.subject || "";
-        if (bodyEl) bodyEl.value = tpl.body || "";
-      });
+      const codes = await api("/api/admin/discount-codes");
+      if (codes && codes.error) throw new Error(codes.error);
+      renderDiscountCodes(Array.isArray(codes) ? codes : []);
       statusEl.style.display = "none";
       wrap.style.display = "block";
     } catch (e) {
-      statusEl.textContent = "E-Mail-Vorlagen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      statusEl.textContent = "Rabattcodes konnten nicht geladen werden. " + (e && e.message ? e.message : "");
     }
   }
-  function collectEmailTemplates() {
-    const values = {};
-    Object.keys(ET_FIELDS).forEach((type) => {
-      const subjEl = document.getElementById(ET_FIELDS[type].subject);
-      const bodyEl = document.getElementById(ET_FIELDS[type].body);
-      values[type] = {
-        subject: subjEl ? subjEl.value : "",
-        body: bodyEl ? bodyEl.value : "",
-      };
-    });
-    return values;
+
+  function renderDiscountCodes(codes) {
+    const listEl = document.getElementById("dc-list");
+    if (!listEl) return;
+    if (!codes.length) {
+      listEl.innerHTML = '<div class="empty-state" style="padding:22px 8px;text-align:left">Noch keine Rabattcodes vorhanden.</div>';
+      return;
+    }
+    listEl.innerHTML = codes.map((c) => (
+      '<div class="discount-admin-row" data-code="' + escapeHtml(c.code) + '">' +
+        '<div><b>' + escapeHtml(c.code) + '</b><span>' + escapeHtml(String(c.percent)) + ' % Rabatt</span></div>' +
+        '<div style="display:flex;gap:7px">' +
+          '<button type="button" class="small-btn dc-edit-btn">Bearbeiten</button>' +
+          '<button type="button" class="small-btn modal-danger dc-delete-btn">Löschen</button>' +
+        '</div>' +
+      '</div>'
+    )).join("");
   }
-  function wireEmailTemplateSave(btnId, msgId) {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener("click", async () => {
-      // Beide Vorlagen werden immer zusammen gesendet, da die API
-      // beide Vorlagen auf einmal speichert (sonst würde die jeweils
-      // andere Vorlage mit leeren Werten überschrieben).
-      const values = collectEmailTemplates();
-      btn.disabled = true;
-      const originalLabel = btn.textContent;
-      btn.textContent = "Speichert …";
+
+  function wireDiscountCodeManagement() {
+    const addBtn = document.getElementById("dc-add-btn");
+    const codeInput = document.getElementById("dc-code");
+    const percentInput = document.getElementById("dc-percent");
+    const msg = document.getElementById("dc-save-msg");
+    const list = document.getElementById("dc-list");
+    if (!addBtn || !codeInput || !percentInput || !list) return;
+
+    addBtn.addEventListener("click", async () => {
+      const code = codeInput.value.trim().toUpperCase();
+      const percent = Number(percentInput.value);
+      if (!code) return alert("Bitte einen Rabattcode eingeben.");
+      if (!Number.isFinite(percent) || percent < 1 || percent > 99.99) return alert("Der Rabatt muss zwischen 1 % und 99,99 % liegen.");
+      addBtn.disabled = true;
+      const original = addBtn.textContent;
+      addBtn.textContent = "Speichert …";
       try {
-        const updated = await api("/api/admin/email-templates", {
-          method: "PUT",
+        const saved = await api("/api/admin/discount-codes", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
+          body: JSON.stringify({ code, percent }),
         });
-        if (updated && updated.error) throw new Error(updated.error);
-        Object.keys(ET_FIELDS).forEach((type) => {
-          const tpl = (updated && updated[type]) || {};
-          const subjEl = document.getElementById(ET_FIELDS[type].subject);
-          const bodyEl = document.getElementById(ET_FIELDS[type].body);
-          if (subjEl) subjEl.value = tpl.subject || "";
-          if (bodyEl) bodyEl.value = tpl.body || "";
-        });
-        const msg = document.getElementById(msgId);
-        if (msg) {
-          msg.classList.add("show");
-          clearTimeout(btn._msgTimeout);
-          btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
-        }
+        if (saved && saved.error) throw new Error(saved.error);
+        codeInput.value = "";
+        percentInput.value = "";
+        msg.classList.add("show");
+        setTimeout(() => msg.classList.remove("show"), 2200);
+        await loadDiscountCodes();
       } catch (e) {
-        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+        alert(e && e.message ? e.message : "Rabattcode konnte nicht gespeichert werden.");
       } finally {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
+        addBtn.disabled = false;
+        addBtn.textContent = original;
+      }
+    });
+
+    list.addEventListener("click", async (e) => {
+      const row = e.target.closest(".discount-admin-row");
+      if (!row) return;
+      const code = row.dataset.code || "";
+      if (e.target.closest(".dc-edit-btn")) {
+        const button = e.target.closest(".dc-edit-btn");
+        const current = [...list.querySelectorAll(".discount-admin-row")].find((r) => r.dataset.code === code);
+        const percentText = current ? current.querySelector("span")?.textContent || "" : "";
+        const match = percentText.match(/([\d.,]+)/);
+        codeInput.value = code;
+        percentInput.value = match ? match[1].replace(",", ".") : "";
+        codeInput.focus();
+        return;
+      }
+      if (e.target.closest(".dc-delete-btn")) {
+        if (!confirm('Rabattcode "' + code + '" wirklich löschen?')) return;
+        const button = e.target.closest(".dc-delete-btn");
+        button.disabled = true;
+        try {
+          const result = await api("/api/admin/discount-codes/" + encodeURIComponent(code), { method: "DELETE" });
+          if (result && result.error) throw new Error(result.error);
+          await loadDiscountCodes();
+        } catch (err) {
+          alert(err && err.message ? err.message : "Rabattcode konnte nicht gelöscht werden.");
+          button.disabled = false;
+        }
       }
     });
   }
-  wireEmailTemplateSave("et-accepted-save-btn", "et-accepted-save-msg");
-  wireEmailTemplateSave("et-rejected-save-btn", "et-rejected-save-msg");
+
+  // ---------- E-Mail-Vorlagen ----------
+  const ET_TEMPLATE_DEFS = [
+    { type:"booking_accepted", title:"Buchung angenommen", hint:"Wird beim Annehmen einer normalen Buchung oder eines Monatsabos verwendet." },
+    { type:"booking_rejected", title:"Buchung abgelehnt", hint:"Wird beim Ablehnen einer neuen Buchung verwendet." },
+    { type:"booking_cancelled", title:"Termin nachträglich abgesagt", hint:"Wird bei einer nachträglichen Absage eines bereits bestätigten Termins verwendet." },
+    { type:"abo_cancelled", title:"Monatsabo gekündigt", hint:"Wird beim Kündigen eines Monatsabos aus der Kundenansicht verwendet." },
+    { type:"abo_reschedule", title:"Terminverlegung", hint:"Wird verwendet, wenn du einen Reinigungstermin mit dem Kunden verlegen möchtest." },
+    { type:"abo_paused", title:"Monatsabo pausiert", hint:"Wird beim Pausieren eines Monatsabos verwendet." },
+    { type:"customer_reply", title:"Antwort auf Kundenmail", hint:"Startvorlage für Antworten auf eingehende Nachrichten im Postfach." },
+    { type:"custom_message", title:"Freie Nachricht an Kunden", hint:"Startvorlage für eine eigene Nachricht aus der Kundenansicht." },
+  ];
+  const ET_FIELDS = {};
+  const ET_DEFAULTS = {
+    booking_accepted:{subject:"EcoBin – Termin bestätigt",body:"Hallo {{name}},\n\nIhre EcoBin-Buchung wurde bestätigt.\n\nTermin: {{datum}}\nTonnen: {{tonnen}}\nExtras: {{extras}}\nArt: {{art}}\nPreis: {{preis}}\n\nViele Grüße\nIhr EcoBin-Team"},
+    booking_rejected:{subject:"EcoBin – Buchung abgelehnt",body:"Hallo {{name}},\n\nleider können wir Ihre EcoBin-Buchung für den {{datum}} nicht annehmen.\n\nBei Fragen können Sie uns gerne kontaktieren.\n\nViele Grüße\nIhr EcoBin-Team"},
+    booking_cancelled:{subject:"Ihre EcoBin-Reinigung wurde nachträglich abgesagt",body:"Guten Tag {{name}},\n\nleider müssen wir Ihnen mitteilen, dass Ihr bereits bestätigter EcoBin-Reinigungstermin am {{datum}} nachträglich abgesagt werden muss.\n\nWir entschuldigen uns für die entstandenen Umstände und bedanken uns für Ihr Verständnis.\n\nBei Fragen können Sie uns gerne kontaktieren.\n\nFreundliche Grüße\nIhr EcoBin-Team"},
+    abo_cancelled:{subject:"Kündigung Ihres Monatsabos bei EcoBin",body:"Hallo {{name}},\n\nhiermit bestätigen wir die Kündigung Ihres Monatsabos zur Mülltonnenreinigung.\n\nViele Grüße\nIhr EcoBin-Team"},
+    abo_reschedule:{subject:"Terminverlegung – Ihre Mülltonnenreinigung",body:"Hallo {{name}},\n\nwir möchten Ihren Reinigungstermin am {{datum}} verlegen. Bitte teilen Sie uns Ihren Wunschtermin mit, oder wir schlagen Ihnen gerne einen neuen Termin vor.\n\nViele Grüße\nIhr EcoBin-Team"},
+    abo_paused:{subject:"Pausierung Ihres Monatsabos bei EcoBin",body:"Hallo {{name}},\n\nwir haben Ihr Monatsabo wie gewünscht pausiert. Sobald Sie es wieder fortsetzen möchten, melden Sie sich gerne bei uns.\n\nViele Grüße\nIhr EcoBin-Team"},
+    customer_reply:{subject:"Re: Ihre Nachricht an EcoBin",body:"Hallo {{name}},\n\n\n\nViele Grüße\nIhr EcoBin-Team"},
+    custom_message:{subject:"Nachricht von EcoBin",body:"Hallo {{name}},\n\n\n\nViele Grüße\nIhr EcoBin-Team"},
+  };
+  function buildEmailTemplateFields(){
+    const wrap=document.getElementById("et-template-list");
+    if(!wrap) return;
+    wrap.innerHTML=ET_TEMPLATE_DEFS.map((def,i)=>{
+      const sid="et-"+def.type+"-subject", bid="et-"+def.type+"-body", save="et-"+def.type+"-save-btn", msg="et-"+def.type+"-save-msg";
+      ET_FIELDS[def.type]={subject:sid,body:bid};
+      return '<div class="settings-tile" style="margin:0 0 10px;border:1px solid var(--line);box-shadow:none">'+
+        '<div class="settings-tile-head" data-et-toggle="'+def.type+'" style="padding:13px 14px">'+
+        '<div class="settings-tile-icon">✉️</div><div class="settings-tile-title"><b>'+escapeHtml(def.title)+'</b><span>'+escapeHtml(def.hint)+'</span></div><div class="settings-tile-chev">▾</div></div>'+
+        '<div class="settings-tile-body" data-et-body="'+def.type+'"><div class="settings-tile-inner">'+
+        '<div class="field"><label for="'+sid+'">Betreff</label><input type="text" id="'+sid+'"></div>'+
+        '<div class="field"><label for="'+bid+'">Nachricht</label><textarea id="'+bid+'" rows="7"></textarea></div>'+
+        '<div class="settings-actions"><button class="settings-save-btn" id="'+save+'">Speichern</button><span class="settings-save-msg" id="'+msg+'">✓ Gespeichert</span></div>'+
+        '</div></div></div>';
+    }).join("");
+    wrap.querySelectorAll("[data-et-toggle]").forEach(head=>{
+      const body=wrap.querySelector('[data-et-body="'+head.dataset.etToggle+'"]');
+      head.addEventListener("click",()=>{
+        const open=body && body.style.display!=="none";
+        if(body) body.style.display=open?"none":"block";
+        head.classList.toggle("open",!open);
+      });
+      if(body) body.style.display="none";
+    });
+    ET_TEMPLATE_DEFS.forEach(def=>wireEmailTemplateSave("et-"+def.type+"-save-btn","et-"+def.type+"-save-msg"));
+  }
+  buildEmailTemplateFields();
+
+  function mergeEmailTemplateDefaults(templates){
+    const out={};
+    ET_TEMPLATE_DEFS.forEach(def=>{
+      const tpl=(templates&&templates[def.type])||{};
+      const fallback=ET_DEFAULTS[def.type]||{subject:"",body:""};
+      out[def.type]={subject:tpl.subject||fallback.subject,body:tpl.body||fallback.body};
+    });
+    return out;
+  }
+  async function loadEmailVorlagen(){
+    const statusEl=document.getElementById("et-status"), wrap=document.getElementById("et-fields-wrap");
+    if(!statusEl||!wrap)return;
+    statusEl.textContent="Lädt …"; statusEl.style.display="block"; wrap.style.display="none";
+    try{
+      const templates=await api("/api/admin/email-templates");
+      if(templates&&templates.error)throw new Error(templates.error);
+      const merged=mergeEmailTemplateDefaults(templates);
+      ET_TEMPLATE_DEFS.forEach(def=>{
+        const f=ET_FIELDS[def.type]; const tpl=merged[def.type];
+        const s=document.getElementById(f.subject), b=document.getElementById(f.body);
+        if(s)s.value=tpl.subject||""; if(b)b.value=tpl.body||"";
+      });
+      statusEl.style.display="none"; wrap.style.display="block";
+    }catch(e){statusEl.textContent="E-Mail-Vorlagen konnten nicht geladen werden. "+(e&&e.message?e.message:"");}
+  }
+  function collectEmailTemplates(){
+    const values={};
+    ET_TEMPLATE_DEFS.forEach(def=>{const f=ET_FIELDS[def.type];values[def.type]={subject:(document.getElementById(f.subject)||{}).value||"",body:(document.getElementById(f.body)||{}).value||""};});
+    return values;
+  }
+  function wireEmailTemplateSave(btnId,msgId){
+    const btn=document.getElementById(btnId); if(!btn)return;
+    btn.addEventListener("click",async()=>{
+      const values=collectEmailTemplates(); btn.disabled=true; const original=btn.textContent; btn.textContent="Speichert …";
+      try{
+        const updated=await api("/api/admin/email-templates",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(values)});
+        if(updated&&updated.error)throw new Error(updated.error);
+        const merged=mergeEmailTemplateDefaults(updated);
+        ET_TEMPLATE_DEFS.forEach(def=>{const f=ET_FIELDS[def.type],tpl=merged[def.type];const s=document.getElementById(f.subject),b=document.getElementById(f.body);if(s)s.value=tpl.subject||"";if(b)b.value=tpl.body||"";});
+        const msg=document.getElementById(msgId); if(msg){msg.classList.add("show");clearTimeout(btn._msgTimeout);btn._msgTimeout=setTimeout(()=>msg.classList.remove("show"),3000);}
+      }catch(e){alert("Speichern fehlgeschlagen: "+(e&&e.message?e.message:"unbekannter Fehler"));}
+      finally{btn.disabled=false;btn.textContent=original;}
+    });
+  }
+
+  let cachedEmailTemplates={};
+  async function getClientEmailTemplate(type,b){
+    let tpl=cachedEmailTemplates[type];
+    if(!tpl){
+      try{const all=await api("/api/admin/email-templates");cachedEmailTemplates=mergeEmailTemplateDefaults(all);tpl=cachedEmailTemplates[type];}catch(_){tpl=ET_DEFAULTS[type]||{subject:"Nachricht von EcoBin",body:"Hallo {{name}},\n\n\n\nViele Grüße\nIhr EcoBin-Team"};}
+    }
+    const map={name:b&&b.name||"Kunde",email:fieldVal(b||{},["email"],""),datum:b&&b.date?formatDateDe(b.date):"",tonnen:b&&b.binTypes||"-",extras:b&&b.extras&&b.extras!=="keine"?b.extras:"-",art:b&&b.abo?"Monatsabo":"Einmalige Reinigung",preis:b&&b.amount?String(b.amount).replace(".",",")+" €":"-",adresse:b&&b.address||"-"};
+    const fill=t=>String(t||"").replace(/\{\{\s*(\w+)\s*\}\}/g,(m,k)=>Object.prototype.hasOwnProperty.call(map,k.toLowerCase())?map[k.toLowerCase()]:m);
+    return {subject:fill(tpl.subject),body:fill(tpl.body)};
+  }
+  async function openPreparedGmail(type,b,toOverride){
+    const tpl=await getClientEmailTemplate(type,b||{});
+    const to=toOverride!=null?toOverride:fieldVal(b||{},["email"],"");
+    const email={to,subject:tpl.subject,text:tpl.body};
+    window.open(buildGmailComposeUrl(email),"_blank");
+  }
 
   function statusInfo(b, todayI) {
     if (b.status === "cancelled") return { label: "Abgesagt", cls: "pill-rej" };
@@ -665,7 +820,7 @@
     });
   }
 
-  // Vorschau der offenen Postfach-Einträge fürs Dashboard (kein Verlauf, keine erledigten Buchungen)
+  // Kompakte Vorschau der offenen Postfach-Einträge fürs Dashboard
   function renderNotifications(list, todayI) {
     const pendingAll = list
       .filter((b) => b.status === "pending")
@@ -680,12 +835,30 @@
       badge.textContent = pendingCount;
       badge.style.display = pendingCount > 0 ? "inline-flex" : "none";
     }
-    if (panel) {
-      panel.classList.toggle("alert", pendingCount > 0);
+    if (panel) panel.classList.toggle("alert", pendingCount > 0);
+
+    const el = document.getElementById("notifications");
+    if (!el) return;
+    if (!pendingAll.length) {
+      el.innerHTML = '<div class="empty-state">Alles erledigt – keine neuen Anfragen.</div>';
+      return;
     }
 
-    // Im Dashboard weiterhin nur die neuesten 3 offenen Anfragen anzeigen.
-    renderCards("notifications", pendingAll.slice(0, 3), todayI, "Keine offenen Anfragen im Postfach.");
+    el.innerHTML = pendingAll.slice(0, 4).map((b) => {
+      const kind = b.abo ? "Neues Monatsabo" : "Neue Buchung";
+      return '<div class="dashboard-notification" data-dashboard-booking="' + escapeHtml(b._uid) + '">' +
+        '<span class="dashboard-notification-dot"></span>' +
+        '<div class="dashboard-notification-main">' +
+          '<div class="dashboard-notification-title">' + escapeHtml(kind + " · " + (b.name || "Unbekannter Kunde")) + '</div>' +
+          '<div class="dashboard-notification-meta">' + formatDateDe(b.date) + ' · ' + formatEuro(b.amount) + '</div>' +
+        '</div>' +
+        '<span class="dashboard-notification-arrow">›</span>' +
+      '</div>';
+    }).join("");
+
+    el.querySelectorAll("[data-dashboard-booking]").forEach((row) => {
+      row.addEventListener("click", () => openBookingDetail(row.dataset.dashboardBooking));
+    });
   }
 
   function pfFilteredList(list) {
@@ -765,6 +938,18 @@
   function saveLocalTestBooking(booking) { const list=getLocalTestBookings(); const idx=list.findIndex(x=>String(x._uid||x.id)===String(booking._uid||booking.id)); if(idx>=0) list[idx]=booking; else list.unshift(booking); saveLocalTestBookings(list); }
   function updateLocalTestBooking(booking) { saveLocalTestBooking(booking); }
   function isLocalTestBooking(b) { return !!(b && b._testData===true); }
+  // Testbuchungen laufen vollständig lokal, dürfen aber niemals einen
+  // undefinierten Hilfsaufruf auslösen. Aktionen werden nur als Verlauf
+  // gespeichert; echte API-/PayPal-Aufrufe finden bei Testdaten nie statt.
+  function addTestAction(text) {
+    try {
+      const key = "ecobin_test_actions";
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      const next = Array.isArray(list) ? list : [];
+      next.unshift({ text: String(text || ""), at: new Date().toISOString() });
+      localStorage.setItem(key, JSON.stringify(next.slice(0, 100)));
+    } catch (_) {}
+  }
 
   let otherMessagesLoaded = false;
 
@@ -807,10 +992,21 @@
     const pendingCard = document.getElementById("stat-pending")?.closest(".stat-card");
     if (pendingCard) pendingCard.classList.toggle("dashboard-alert", pendingCount > 0);
     document.getElementById("stat-pending").textContent = pendingCount;
+    const sidebarBadge = document.getElementById("pf-badge");
+    if (sidebarBadge) {
+      sidebarBadge.textContent = pendingCount;
+      sidebarBadge.style.display = pendingCount > 0 ? "inline-flex" : "none";
+    }
 
     // Aktive Monatsabos
     const aboAll = bookings.filter((b) => b.abo);
     const aboActive = aboAll.filter((b) => b.status === "accepted");
+    const aboPendingCount = aboAll.filter((b) => b.status === "pending").length;
+    const aboBadge = document.getElementById("abo-badge");
+    if (aboBadge) {
+      aboBadge.textContent = aboPendingCount;
+      aboBadge.style.display = aboPendingCount > 0 ? "inline-flex" : "none";
+    }
     document.getElementById("stat-abos").textContent = aboActive.length;
     document.getElementById("stat-abos-sub").textContent = "von " + aboAll.length + " insgesamt";
 
@@ -954,7 +1150,8 @@
   });
 
   function openMailDraft(to, subject, body) {
-    window.location.href = "mailto:" + encodeURIComponent(to) + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    const email={to:to||"",subject:subject||"",text:body||""};
+    window.open(buildGmailComposeUrl(email),"_blank");
   }
 
   function setBookingStatus(uid, status) {
@@ -978,7 +1175,7 @@
       ["Buchungsdatum", formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null)],
       ["Buchungsart", buchungsart],
       ["Gesamtpreis", formatEuro(b.amount)],
-      ["Zahlungsstatus", "Bezahlt"],
+      ["Zahlungsstatus", b._testData ? "Testbuchung – kein echtes Geld bezahlt" : "Bezahlt"],
       ["PayPal-Referenz", escapeHtml(fieldVal(b, ["paypalRef"], "–"))],
       ["Tonnen", b.binTypes ? escapeHtml(String(b.binTypes)) : "–"],
       ["Anzahl der Tonnen", b.bins != null ? escapeHtml(String(b.bins)) : "–"],
@@ -1165,7 +1362,10 @@
     try {
       let res;
       if (isLocalTestBooking(b)) {
-        b.status=action==="accept"?"accepted":"rejected"; b.decidedAt=new Date().toISOString(); updateLocalTestBooking(b);
+        b.status=action==="accept"?"accepted":"rejected";
+        b.decidedAt=new Date().toISOString();
+        if (b.abo && action === "accept" && !b.nextCleaningDate) b.nextCleaningDate = b.date || todayIso();
+        updateLocalTestBooking(b);
         res={email:buildTestEmail(b,action)};
         addTestAction("Testbuchung "+(action==="accept"?"angenommen":"abgelehnt")+" ("+(b.id||uid)+")");
       } else {
@@ -1205,7 +1405,7 @@
   document.getElementById("bd-reject-btn").addEventListener("click", () => decideBookingDetail("reject"));
 
   document.querySelectorAll(".kd-action-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const b = findBookingByUid(currentKundeUid);
       if (!b) return;
       const to = fieldVal(b, ["email"], "");
@@ -1213,24 +1413,22 @@
       const action = btn.dataset.kdAction;
 
       if (action === "custom") {
+        const tpl=await getClientEmailTemplate("custom_message",b);
         document.getElementById("kd-custom-mail").style.display = "block";
-        document.getElementById("kd-custom-subject").value = "";
-        document.getElementById("kd-custom-body").value = "Hallo " + name + ",\n\n\n\nViele Grüße\nIhr EcoBin-Team";
+        document.getElementById("kd-custom-subject").value = tpl.subject;
+        document.getElementById("kd-custom-body").value = tpl.body;
         return;
       }
       document.getElementById("kd-custom-mail").style.display = "none";
 
       if (action === "cancel") {
-        openMailDraft(to, "Kündigung Ihres Monatsabos bei EcoBin",
-          "Hallo " + name + ",\n\nhiermit bestätigen wir die Kündigung Ihres Monatsabos zur Mülltonnenreinigung.\n\nViele Grüße\nIhr EcoBin-Team");
+        await openPreparedGmail("abo_cancelled",b,to);
         setBookingStatus(currentKundeUid, "rejected");
       } else if (action === "reschedule") {
-        openMailDraft(to, "Terminverlegung – Ihre Mülltonnenreinigung",
-          "Hallo " + name + ",\n\nwir möchten Ihren Reinigungstermin verlegen. Bitte teilen Sie uns Ihren Wunschtermin mit, oder wir schlagen Ihnen gerne einen neuen Termin vor.\n\nViele Grüße\nIhr EcoBin-Team");
+        await openPreparedGmail("abo_reschedule",b,to);
         setBookingStatus(currentKundeUid, "accepted");
       } else if (action === "pause") {
-        openMailDraft(to, "Pausierung Ihres Monatsabos bei EcoBin",
-          "Hallo " + name + ",\n\nwir haben Ihr Monatsabo wie gewünscht pausiert. Sobald Sie es wieder fortsetzen möchten, melden Sie sich gerne bei uns.\n\nViele Grüße\nIhr EcoBin-Team");
+        await openPreparedGmail("abo_paused",b,to);
         setBookingStatus(currentKundeUid, "paused");
       }
     });
@@ -1315,7 +1513,7 @@
       btn.addEventListener("click", () => {
         const m = otherMessages.find((x) => x.id === btn.dataset.msgReply);
         if (!m) return;
-        openMailDraft(m.email || "", "Re: " + (m.subject || ""), "Hallo " + (m.name || "") + ",\n\n\n\nViele Grüße\nIhr EcoBin-Team");
+        openPreparedGmail("customer_reply", {name:m.name||"Kunde", email:m.email||""}, m.email || "");
       });
     });
     el.querySelectorAll("[data-msg-delete]").forEach((btn) => {
@@ -1492,6 +1690,8 @@
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
   document.querySelectorAll(".sb-item").forEach((btn) => btn.addEventListener("click", closeSidebar));
 
+
+  wireDiscountCodeManagement();
 
   // Start
   if (token) {
