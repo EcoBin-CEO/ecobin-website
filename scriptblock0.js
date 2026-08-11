@@ -5,46 +5,7 @@
   let token = sessionStorage.getItem(TOKEN_KEY) || "";
   let bookings = [];
 
-  const TESTMODE_KEY = "ecobin_verwaltung_testmode";
   const TEST_ACTIONS_KEY = "ecobin_verwaltung_test_actions";
-  function isTestMode() {
-    return localStorage.getItem(TESTMODE_KEY) === "1";
-  }
-  function setTestMode(enabled) {
-    localStorage.setItem(TESTMODE_KEY, enabled ? "1" : "0");
-    updateTestModeUI();
-  }
-  function updateTestModeUI() {
-    const active = isTestMode();
-    const banner = document.getElementById("testmode-banner");
-    const tile = document.getElementById("settings-testmodus");
-    const toggle = document.getElementById("testmode-toggle");
-    if (banner) banner.classList.toggle("show", active);
-    if (tile) tile.classList.toggle("is-active", active);
-    if (toggle) toggle.checked = active;
-    renderTestLog();
-  }
-  function getTestActions() {
-    try {
-      const raw = JSON.parse(localStorage.getItem(TEST_ACTIONS_KEY) || "[]");
-      return Array.isArray(raw) ? raw : [];
-    } catch (_) { return []; }
-  }
-  function addTestAction(label) {
-    const actions = getTestActions();
-    actions.unshift({ label, at: new Date().toISOString() });
-    localStorage.setItem(TEST_ACTIONS_KEY, JSON.stringify(actions.slice(0, 10)));
-    renderTestLog();
-  }
-  function renderTestLog() {
-    const el = document.getElementById("test-log");
-    if (!el) return;
-    const actions = getTestActions();
-    el.innerHTML = '<div class="test-log-title">Letzte Testaktionen</div>' +
-      (actions.length ? actions.map(a => '<div class="test-log-item">✓ ' + escapeHtml(a.label) + ' · ' + formatDateTimeDe(a.at) + '</div>').join("") :
-        '<div class="test-log-empty" style="font-size:11.5px;color:var(--muted)">Noch keine Testaktionen.</div>');
-  }
-
   const loginScreen = document.getElementById("login-screen");
   const app = document.getElementById("app");
   const loginBtn = document.getElementById("login-btn");
@@ -94,10 +55,6 @@
   }
 
   async function api(path, opts) {
-    const method = String((opts && opts.method) || "GET").toUpperCase();
-    if (isTestMode() && !["GET", "HEAD"].includes(method)) {
-      throw new Error("Testmodus aktiv: echte Aktionen sind blockiert.");
-    }
     const res = await fetch(WORKER_URL + path, Object.assign({}, opts, {
       headers: Object.assign({ "Authorization": "Bearer " + token }, (opts && opts.headers) || {}),
     }));
@@ -236,7 +193,6 @@
     });
     loadPreise();
     loadEmailVorlagen();
-    updateTestModeUI();
   }
   document.querySelectorAll("[data-settings-toggle]").forEach((head) => {
     head.addEventListener("click", () => {
@@ -262,87 +218,32 @@
     });
   }
 
-  // ---------- Testmodus ----------
-  const testToggle = document.getElementById("testmode-toggle");
-  if (testToggle) {
-    testToggle.addEventListener("change", () => {
-      setTestMode(testToggle.checked);
-      const msg = testToggle.checked
-        ? "Testmodus aktiviert. Echte Schreibaktionen sind jetzt blockiert."
-        : "Testmodus deaktiviert.";
-      showToast(msg);
-    });
+  // ---------- Testdaten ----------
+  function buildTestEmail(b, action) {
+    const name=b.name||"Testkunde", date=formatDateDe(b.date), kind=b.abo?"Monatsabo":"Buchung";
+    let subject="EcoBin – ", body="Hallo "+name+",\n\n";
+    if(action==="accept"){subject+="Termin bestätigt";body+="dein "+kind+" am "+date+" wurde bestätigt.\n\n";}
+    else if(action==="reject"){subject+="Termin abgelehnt";body+="dein "+kind+" am "+date+" wurde abgelehnt.\n\n";}
+    else {subject+="Termin nachträglich abgesagt";body+="der Termin am "+date+" wurde nachträglich abgesagt.\n\n";}
+    body+="Dies ist eine Testbuchung. Es wurde kein echtes Geld verarbeitet und keine E-Mail automatisch versendet.\n\nViele Grüße\nEcoBin-Team";
+    return {to:TEST_EMAIL,subject,text:body};
   }
-  function requireTestMode() {
-    if (!isTestMode()) {
-      alert("Bitte zuerst den Testmodus aktivieren.");
-      return false;
-    }
-    return true;
+  function normalizeLocalTestBookings(){
+    const list=getLocalTestBookings(); let changed=false;
+    list.forEach(b=>{if(!b._testData)return; if(b.email!==TEST_EMAIL){b.email=TEST_EMAIL;changed=true;} if(!b.date){b.date=b.cleaningDate||b.desiredDate||todayIso();changed=true;} if(b.amount==null){b.amount=Number(b.totalPrice||b.price||25);changed=true;} if(!b.bookingType){b.bookingType=b.abo?"Monatsabo":"Einzelbuchung";changed=true;} if(!b.status){b.status="pending";changed=true;}});
+    if(changed)saveLocalTestBookings(list);
   }
-  function createLocalTestBooking() {
-    if (!requireTestMode()) return;
-    const id = "TEST-" + Date.now();
-    const booking = {
-      id,
-      _uid: id,
-      name: "Testkunde",
-      email: "testkunde@example.invalid",
-      address: "Teststraße 1, 00000 Testort",
-      desiredDate: todayIso(),
-      cleaningDate: todayIso(),
-      totalPrice: 25,
-      price: 25,
-      status: "pending",
-      paymentStatus: "Ausstehend",
-      bookingType: "Einzelbuchung",
-      createdAt: new Date().toISOString(),
-      _testData: true
-    };
-    saveLocalTestBooking(booking);
-    bookings = [booking].concat(bookings || []);
-    render();
-    addTestAction("Testbuchung erstellt (" + id + ")");
-    showToast("Testbuchung erstellt – keine echten Daten verändert.");
+  function createLocalTestBooking(isAbo){
+    const id=(isAbo?"TEST-ABO-":"TEST-")+Date.now();
+    const booking={id,_uid:id,_testData:true,name:"EcoBin Testkunde",email:TEST_EMAIL,address:"Teststraße 1, 00000 Testort",date:todayIso(),desiredDate:todayIso(),cleaningDate:todayIso(),amount:25,totalPrice:25,price:25,status:"pending",paymentStatus:"Testzahlung – kein echtes Geld",bookingType:isAbo?"Monatsabo":"Einzelbuchung",abo:!!isAbo,createdAt:new Date().toISOString(),notes:"Automatisch erzeugte Testbuchung. Keine echte PayPal-Zahlung.",paypalRef:"TEST-NO-PAYPAL"};
+    saveLocalTestBooking(booking); bookings=[booking].concat(bookings||[]); render();
+    addTestAction((isAbo?"Test-Abo":"Testbuchung")+" erstellt ("+id+")");
+    showToast((isAbo?"Test-Abo":"Testbuchung")+" erstellt – kann jetzt wie eine normale Buchung behandelt werden.");
   }
-  function createLocalTestAbo() {
-    if (!requireTestMode()) return;
-    const id = "TEST-ABO-" + Date.now();
-    addTestAction("Test-Abo erstellt (" + id + ")");
-    showToast("Test-Abo simuliert – PayPal wurde nicht verwendet.");
-  }
-  function simulateTestPayment() {
-    if (!requireTestMode()) return;
-    addTestAction("Testzahlung simuliert");
-    showToast("Testzahlung erfolgreich simuliert – keine PayPal-Zahlung ausgelöst.");
-  }
-  function openTestEmail() {
-    if (!requireTestMode()) return;
-    const win = window.open("", "_blank", "noopener,noreferrer");
-    if (!win) {
-      alert("Das Test-E-Mail-Fenster wurde vom Browser blockiert.");
-      return;
-    }
-    const body = `Hallo Testkunde,
-
-dies ist eine reine EcoBin-Test-E-Mail.
-
-Es wurde keine echte E-Mail versendet.
-
-Viele Grüße
-EcoBin-Team`;
-    win.document.write("<!doctype html><html lang='de'><head><meta charset='utf-8'><title>EcoBin – Test-E-Mail</title><style>body{font:14px/1.6 Arial,sans-serif;padding:32px;color:#092d4b} .box{max-width:700px;margin:auto;border:1px solid #e3e2d8;border-radius:12px;padding:24px} .tag{display:inline-block;background:#fdecea;color:#c62828;padding:5px 9px;border-radius:7px;font-weight:700;margin-bottom:15px}</style></head><body><div class='box'><div class='tag'>TEST – nicht versendet</div><h2>EcoBin Test-E-Mail</h2><pre style='white-space:pre-wrap;font:inherit'>"+escapeHtml(body)+"</pre></div></body></html>");
-    win.document.close();
-    addTestAction("Test-E-Mail geöffnet");
-  }
-  const testCreateBooking = document.getElementById("test-create-booking");
-  const testCreateAbo = document.getElementById("test-create-abo");
-  const testPayment = document.getElementById("test-payment");
-  const testEmail = document.getElementById("test-email");
-  if (testCreateBooking) testCreateBooking.addEventListener("click", createLocalTestBooking);
-  if (testCreateAbo) testCreateAbo.addEventListener("click", createLocalTestAbo);
-  if (testPayment) testPayment.addEventListener("click", simulateTestPayment);
-  if (testEmail) testEmail.addEventListener("click", openTestEmail);
+  const testCreateBooking=document.getElementById("test-create-booking"), testCreateAbo=document.getElementById("test-create-abo");
+  if(testCreateBooking)testCreateBooking.addEventListener("click",()=>createLocalTestBooking(false));
+  if(testCreateAbo)testCreateAbo.addEventListener("click",()=>createLocalTestBooking(true));
+  normalizeLocalTestBookings();
 
   // ---------- Preise & Produkte ----------
   const PR_FIELDS = {
@@ -586,11 +487,14 @@ EcoBin-Team`;
 
   function calEventHtml(b, todayI) {
     const st = statusInfo(b, todayI);
-    const dotColor = { "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)";
+    const isTest = isLocalTestBooking(b);
+    const dotColor = isTest ? "#d97706" : ({ "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)");
+    const testLabel = isTest ? '<span class="cal-test-label">' + (b.abo ? 'TEST-ABO' : 'TEST') + '</span>' : '';
+    const eventClass = isTest ? 'cal-event test-event' : 'cal-event';
     return (
-      '<div class="cal-event" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
-      '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + "</span></div>" +
-      '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status" style="color:' + dotColor + '">' + st.label + "</span></div>" +
+      '<div class="' + eventClass + '" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
+      '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + testLabel + "</span></div>" +
+      '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status" style="color:' + dotColor + '">' + (isTest ? 'Testbuchung' : st.label) + "</span></div>" +
       "</div>"
     );
   }
@@ -854,17 +758,13 @@ EcoBin-Team`;
     });
   });
 
-  function getLocalTestBookings() {
-    try {
-      const raw = JSON.parse(localStorage.getItem("ecobin_test_bookings") || "[]");
-      return Array.isArray(raw) ? raw : [];
-    } catch (_) { return []; }
-  }
-  function saveLocalTestBooking(booking) {
-    const list = getLocalTestBookings();
-    list.unshift(booking);
-    localStorage.setItem("ecobin_test_bookings", JSON.stringify(list.slice(0, 20)));
-  }
+  const TEST_BOOKINGS_KEY = "ecobin_test_bookings";
+  const TEST_EMAIL = "mikaback777@gmail.com";
+  function getLocalTestBookings() { try { const raw=JSON.parse(localStorage.getItem(TEST_BOOKINGS_KEY)||"[]"); return Array.isArray(raw)?raw:[]; } catch(_) { return []; } }
+  function saveLocalTestBookings(list) { localStorage.setItem(TEST_BOOKINGS_KEY, JSON.stringify((Array.isArray(list)?list:[]).slice(0,50))); }
+  function saveLocalTestBooking(booking) { const list=getLocalTestBookings(); const idx=list.findIndex(x=>String(x._uid||x.id)===String(booking._uid||booking.id)); if(idx>=0) list[idx]=booking; else list.unshift(booking); saveLocalTestBookings(list); }
+  function updateLocalTestBooking(booking) { saveLocalTestBooking(booking); }
+  function isLocalTestBooking(b) { return !!(b && b._testData===true); }
 
   let otherMessagesLoaded = false;
 
@@ -876,10 +776,8 @@ EcoBin-Team`;
       bookings = await api("/api/admin/bookings?status=all");
       if (!Array.isArray(bookings)) bookings = [];
       bookings.forEach((b, i) => { b._uid = b.id != null ? String(b.id) : String(i); });
-      if (isTestMode()) {
-        const localTests = getLocalTestBookings();
-        bookings = localTests.concat(bookings);
-      }
+      const localTests = getLocalTestBookings();
+      bookings = localTests.concat(bookings);
       render();
     } catch (e) {
       // 401 already handled inside api(); other errors:
@@ -1190,23 +1088,17 @@ EcoBin-Team`;
     msg.textContent = "Termin wird abgesagt …";
 
     try {
-      const idForApi = b.id != null ? b.id : uid;
-
-      // Gmail wird bewusst NICHT vor der API geöffnet. Dadurch kann ein
-      // Popup-Blocker die eigentliche Absage niemals beeinflussen.
-      const res = await api(
-        "/api/admin/bookings/" + encodeURIComponent(idForApi) + "/cancel",
-        { method: "POST" }
-      );
-
-      if (!res || res.error || res.status !== "cancelled") {
-        throw new Error((res && res.error) || "Die Absage konnte nicht bestätigt werden.");
+      let res = null;
+      if (isLocalTestBooking(b)) {
+        b.status="cancelled"; b.cancelledAt=new Date().toISOString(); updateLocalTestBooking(b);
+        res={status:"cancelled",email:buildTestEmail(b,"cancel")};
+        addTestAction("Testbuchung nachträglich abgesagt ("+(b.id||uid)+")");
+      } else {
+        const idForApi=b.id!=null?b.id:uid;
+        res=await api("/api/admin/bookings/"+encodeURIComponent(idForApi)+"/cancel",{method:"POST"});
+        if(!res||res.error||res.status!=="cancelled") throw new Error((res&&res.error)||"Die Absage konnte nicht bestätigt werden.");
+        b.status="cancelled"; b.cancelledAt=(res.booking&&res.booking.cancelledAt)||new Date().toISOString();
       }
-
-      // Lokalen Datensatz sofort dauerhaft auf cancelled setzen.
-      b.status = "cancelled";
-      b.cancelledAt =
-        (res.booking && res.booking.cancelledAt) || new Date().toISOString();
 
       // Dialog und Detailansicht vollständig schließen/zurücksetzen, bevor
       // neu gerendert wird. Damit ist der nächste Termin unabhängig.
@@ -1268,23 +1160,20 @@ EcoBin-Team`;
     msg.className = "bd-action-msg";
     msg.textContent = "";
 
-    // Das Tab MUSS noch synchron im Klick-Kontext geöffnet werden, sonst
-    // blockieren viele Browser das Popup, weil der eigentliche Aufruf erst
-    // nach der (asynchronen) API-Antwort erfolgen würde. Die Ziel-URL wird
-    // gesetzt, sobald die Antwort mit dem E-Mail-Entwurf da ist.
     const gmailTab = window.open("", "_blank");
 
     try {
-      const idForApi = b.id != null ? b.id : uid;
-      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/" + action, { method: "POST" });
-      if (res && res.error) {
-        if (gmailTab) gmailTab.close();
-        msg.className = "bd-action-msg error";
-        msg.textContent = res.error;
-        acceptBtn.disabled = false; rejectBtn.disabled = false;
-        return;
+      let res;
+      if (isLocalTestBooking(b)) {
+        b.status=action==="accept"?"accepted":"rejected"; b.decidedAt=new Date().toISOString(); updateLocalTestBooking(b);
+        res={email:buildTestEmail(b,action)};
+        addTestAction("Testbuchung "+(action==="accept"?"angenommen":"abgelehnt")+" ("+(b.id||uid)+")");
+      } else {
+        const idForApi=b.id!=null?b.id:uid;
+        res=await api("/api/admin/bookings/"+encodeURIComponent(idForApi)+"/"+action,{method:"POST"});
+        if(res&&res.error){if(gmailTab)gmailTab.close();msg.className="bd-action-msg error";msg.textContent=res.error;acceptBtn.disabled=false;rejectBtn.disabled=false;return;}
+        b.status=action==="accept"?"accepted":"rejected";
       }
-      b.status = action === "accept" ? "accepted" : "rejected";
       msg.className = "bd-action-msg ok";
       if (res && res.email && res.email.to) {
         if (gmailTab) {
@@ -1603,8 +1492,6 @@ EcoBin-Team`;
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
   document.querySelectorAll(".sb-item").forEach((btn) => btn.addEventListener("click", closeSidebar));
 
-  // Testmodus UI initialisieren
-  updateTestModeUI();
 
   // Start
   if (token) {
