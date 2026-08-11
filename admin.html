@@ -57,7 +57,7 @@
   .sb-item .ic{width:18px;text-align:center}
   .sb-item:hover{background:#ffffff14}
   .sb-item.active{background:var(--green);color:#fff}
-  .sb-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;border-radius:9px;padding:1px 7px;font-weight:700}
+  .sb-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:11px;border-radius:999px;min-width:22px;height:22px;padding:0 5px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:800;font-variant-numeric:tabular-nums;flex:0 0 auto}
   .sb-footer{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #ffffff1f}
   .avatar{width:32px;height:32px;border-radius:50%;background:var(--lime);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0}
   .sb-footer .who{flex:1;min-width:0}
@@ -1140,6 +1140,28 @@
     list.forEach(b=>{if(!b._testData)return; if(b.email!==TEST_EMAIL){b.email=TEST_EMAIL;changed=true;} if(!b.date){b.date=b.cleaningDate||b.desiredDate||todayIso();changed=true;} if(b.amount==null){b.amount=Number(b.totalPrice||b.price||25);changed=true;} if(!b.bookingType){b.bookingType=b.abo?"Monatsabo":"Einzelbuchung";changed=true;} if(!b.status){b.status="pending";changed=true;}});
     if(changed)saveLocalTestBookings(list);
   }
+  function addTestAction(message){
+    const key = "ecobin_test_actions";
+    let actions = [];
+    try { actions = JSON.parse(localStorage.getItem(key) || "[]"); } catch (_) { actions = []; }
+    actions.unshift({message, at:new Date().toISOString()});
+    actions = actions.slice(0, 20);
+    localStorage.setItem(key, JSON.stringify(actions));
+    renderTestActionLog();
+  }
+  function renderTestActionLog(){
+    const el = document.getElementById("test-log");
+    if (!el) return;
+    let actions = [];
+    try { actions = JSON.parse(localStorage.getItem("ecobin_test_actions") || "[]"); } catch (_) { actions = []; }
+    const items = actions.map(a => {
+      const when = a.at ? new Date(a.at).toLocaleString("de-DE") : "";
+      return '<div class="test-log-item">' + esc(a.message || "") + (when ? ' <span style="opacity:.7">· '+esc(when)+'</span>' : '') + '</div>';
+    }).join("");
+    el.innerHTML = '<div class="test-log-title">Letzte Testaktionen</div>' +
+      (items || '<div class="test-log-empty" style="font-size:11.5px;color:var(--muted)">Noch keine Testaktionen.</div>');
+  }
+
   function createLocalTestBooking(isAbo){
     const id=(isAbo?"TEST-ABO-":"TEST-")+Date.now();
     const booking={id,_uid:id,_testData:true,name:"EcoBin Testkunde",email:TEST_EMAIL,address:"Teststraße 1, 00000 Testort",date:todayIso(),desiredDate:todayIso(),cleaningDate:todayIso(),amount:25,totalPrice:25,price:25,status:"pending",paymentStatus:"Testzahlung – kein echtes Geld",bookingType:isAbo?"Monatsabo":"Einzelbuchung",abo:!!isAbo,createdAt:new Date().toISOString(),notes:"Automatisch erzeugte Testbuchung. Keine echte PayPal-Zahlung.",paypalRef:"TEST-NO-PAYPAL"};
@@ -1151,6 +1173,7 @@
   if(testCreateBooking)testCreateBooking.addEventListener("click",()=>createLocalTestBooking(false));
   if(testCreateAbo)testCreateAbo.addEventListener("click",()=>createLocalTestBooking(true));
   normalizeLocalTestBookings();
+  renderTestActionLog();
 
   // ---------- Preise & Produkte ----------
   const PR_FIELDS = {
