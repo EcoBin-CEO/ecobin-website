@@ -11,6 +11,51 @@
      7) Abo-Status ansehen (Kunde)     -> GET  /api/subscriptions/manage?token=...
      8) Abo kündigen (Kunde)           -> POST /api/subscriptions/cancel
      9) PayPal-Webhooks empfangen      -> POST /api/webhooks/paypal
+    10) Admin: Buchungen auflisten     -> GET  /api/admin/bookings?status=pending|accepted|rejected|all
+    11) Admin: Buchungsdetails         -> GET  /api/admin/bookings/<ID>
+    12) Admin: Buchung annehmen        -> POST /api/admin/bookings/<ID>/accept
+    13) Admin: Buchung ablehnen        -> POST /api/admin/bookings/<ID>/reject
+    14) Preise auslesen (öffentlich)   -> GET  /api/config (Feld "prices")
+    15) Preise ändern (Admin)          -> PUT  /api/admin/prices (Auth: Bearer ADMIN_TOKEN)
+    16) E-Mail-Vorlagen laden (Admin)  -> GET  /api/admin/email-templates (Auth: Bearer ADMIN_TOKEN)
+    17) E-Mail-Vorlagen speichern      -> PUT  /api/admin/email-templates (Auth: Bearer ADMIN_TOKEN)
+
+   INTERNE BUCHUNGSVERWALTUNG (NEU, additiv, siehe /admin)
+   ---------------------------------------------------------------
+   Sobald eine Zahlung erfolgreich erfasst (captureOrder) bzw. ein Abo
+   serverseitig bestätigt wird (confirmSubscription), wird zusätzlich zur
+   bisherigen Benachrichtigungs-E-Mail EIN persistenter Buchungsdatensatz
+   unter KV-Key "booking:<orderID|subscriptionId>" mit Status "pending"
+   angelegt (siehe createPendingBooking). Über die neuen /api/admin/*
+   Endpunkte (geschützt durch ADMIN_TOKEN, siehe unten) kann dieser
+   Datensatz eingesehen und auf "accepted"/"rejected" gesetzt werden.
+
+   WICHTIG (GEÄNDERT): Beim Annehmen/Ablehnen einer Buchung verschickt
+   der Worker KEINE E-Mail mehr automatisch. Stattdessen liefert
+   decideBooking() einen fertigen E-Mail-Entwurf (an/Betreff/Text) an das
+   Admin-Panel zurück. Das Admin-Panel öffnet damit Gmail mit
+   vorausgefüllter Mail – der Admin prüft sie und verschickt sie manuell.
+   Der Entwurf nutzt seit diesem Schritt die unter /api/admin/email-
+   templates gespeicherte Vorlage ("Buchung angenommen"/"Buchung
+   abgelehnt"), inkl. bereits vorhandener Kundendaten (Name, Datum,
+   Tonnen, Extras, Art, Preis, Adresse über {{platzhalter}}). Ist keine
+   Vorlage gespeichert (Betreff oder Nachricht leer), wird weiterhin der
+   bisherige fest codierte E-Mail-Text verwendet (siehe buildDecisionEmail).
+   Grund: Der bisherige automatische Versand über den Resend-Testabsender
+   "onboarding@resend.dev" kam beim Kunden nicht zuverlässig an (siehe
+   Hinweis bei sendEmail/FROM_EMAIL weiter unten), es wurde aber trotzdem
+   "E-Mail wurde verschickt" angezeigt. Am bestehenden PayPal-Zahlungsablauf
+   (Orders, Abos, Webhooks) ändert das NICHTS – die Zahlung ist zu diesem
+   Zeitpunkt bereits abgeschlossen (siehe Hinweis in PROJECT_STATUS.md zum
+   Thema "Ablehnen nach bereits erfolgter Zahlung").
+
+   PREISE & PRODUKTE (NEU, additiv)
+   ---------------------------------------------------------------
+   Alle Preise (Tonnen-Reinigung, Extras, Monatsabo-Rabatt) liegen jetzt
+   zentral im KV unter dem Key "config:prices" statt fest im Website-Code.
+   GET /api/config liefert sie öffentlich mit aus (Website liest sie beim
+   Laden). Die Verwaltung ändert sie über GET/PUT /api/admin/prices,
+   geschützt mit demselben ADMIN_TOKEN wie die übrigen Admin-Endpunkte.
 
    ECHTES MONATSABO
    -----------------
@@ -39,6 +84,23 @@
    Frontend. So bekommt EcoBin auch dann Bescheid, wenn eine Abbuchung
    direkt bei PayPal (ohne Website-Interaktion) passiert.
 
+   ANDERE NACHRICHTEN AUS GMAIL (NEU)
+   ---------------------------------------------------------------
+   Damit im Admin-Panel unter "Postfach -> Andere Nachrichten" echte,
+   nicht-automatische E-Mails aus dem Gmail-Postfach von EcoBin
+   (ecobin.badvilbel@gmail.com) angezeigt werden, ruft der Worker über
+   die Gmail-API die neuesten Nachrichten im Posteingang ab und filtert
+   dabei alle automatischen Benachrichtigungen heraus, die der Worker
+   selbst über Resend verschickt hat (erkennbar am Absender
+   "onboarding@resend.dev", siehe FROM_EMAIL). Übrig bleiben "echte"
+   Nachrichten von Kunden oder Dritten.
+
+   Voraussetzung: Ein Google-Cloud-Projekt mit aktivierter Gmail-API und
+   einem OAuth-Refresh-Token für das Konto ecobin.badvilbel@gmail.com
+   mit Scope "https://www.googleapis.com/auth/gmail.modify" (modify wird
+   benötigt, damit "Löschen" im Admin-Panel die Nachricht auch in Gmail
+   in den Papierkorb verschieben kann).
+
    Secrets/Vars (Cloudflare Worker):
      PAYPAL_CLIENT_ID       - PayPal Client ID (Sandbox oder Live)
      PAYPAL_CLIENT_SECRET   - PayPal Client Secret (Sandbox oder Live)
@@ -49,14 +111,47 @@
      NOTIFY_EMAIL           - optional, überschreibt die EcoBin-Zielmail
      SITE_URL               - optional, z. B. https://ecobin-badvilbel.de
                                (für den Verwaltungslink in E-Mails)
+     ADMIN_TOKEN             - Geheimes Passwort/Token für den Zugriff
+                               auf /admin und die /api/admin/* Endpunkte
+                               (inkl. /api/admin/prices).
+                               Als Secret setzen:
+                               wrangler secret put ADMIN_TOKEN
+     GMAIL_CLIENT_ID         - NEU. OAuth-Client-ID aus Google Cloud
+     GMAIL_CLIENT_SECRET     - NEU. OAuth-Client-Secret aus Google Cloud
+     GMAIL_REFRESH_TOKEN     - NEU. Refresh-Token für
+                               ecobin.badvilbel@gmail.com (siehe oben)
+                               Alle drei als Secrets setzen:
+                               wrangler secret put GMAIL_CLIENT_ID
+                               wrangler secret put GMAIL_CLIENT_SECRET
+                               wrangler secret put GMAIL_REFRESH_TOKEN
 
    KV-Bindung: ORDERS (wie bisher; wird jetzt zusätzlich für dauerhafte
-   Abo-Datensätze und Webhook-Idempotenz genutzt)
+   Abo-Datensätze, Webhook-Idempotenz, persistente Buchungsdatensätze
+   ("booking:<id>") für die Admin-Verwaltung UND die zentrale Preis-
+   Konfiguration ("config:prices") genutzt)
    ============================================================ */
 
 const ALLOWED_ORIGIN = "*";
-const DEFAULT_NOTIFY_EMAIL = "ecobin.badvilbel@gmail.com";
+const DEFAULT_NOTIFY_EMAIL = "mikaback777@gmail.com";
 const FROM_EMAIL = "EcoBin <onboarding@resend.dev>"; // Absender ohne eigene Domain-Verifizierung
+const AUTOMATED_SENDER = "onboarding@resend.dev"; // Absender der Worker-eigenen Benachrichtigungs-Mails
+
+// Typische Muster automatischer Absender (Anmelde-Benachrichtigungen, Sicherheits-
+// hinweise, Newsletter, System-Mails etc.), die NICHT unter "Andere Nachrichten"
+// erscheinen sollen, auch wenn Gmail sie in die Hauptkategorie einsortiert.
+const AUTOMATED_SENDER_PATTERNS = [
+  "no-reply", "noreply", "do-not-reply", "donotreply",
+  "notification", "notifications", "notify@",
+  "alert", "security@", "mailer-daemon", "postmaster",
+  "@accounts.google.com", "@google.com",
+];
+
+function isAutomatedSender(email) {
+  if (!email) return false;
+  const e = email.toLowerCase();
+  if (e.includes(AUTOMATED_SENDER)) return true;
+  return AUTOMATED_SENDER_PATTERNS.some((p) => e.includes(p));
+}
 
 function paypalApiBase(env) {
   return env.PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
@@ -65,7 +160,161 @@ function notifyEmail(env) {
   return env.NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL;
 }
 
+/* ============================================================
+   PREISE & PRODUKTE (zentral in der KV gespeichert, ORDERS-Binding)
+   ------------------------------------------------------------
+   Wird über /api/config oeffentlich ausgeliefert (Website + PayPal-
+   Buttons lesen von dort) und ueber /api/admin/prices (geschuetzt mit
+   ADMIN_TOKEN, siehe checkAdminAuth weiter unten) von der Verwaltung
+   geaendert. So gibt es nur noch EINE Quelle fuer alle Preise statt
+   fest codierter Werte im Frontend.
+   ============================================================ */
+const PRICE_KEY = "config:prices";
+const DEFAULT_PRICES = {
+  binBase: 10, // erste "normale" Tonne (Bio/Rest/Gelb/Papier/Sonstige)
+  binAdditional: 5, // jede weitere "normale" Tonne
+  binGross: 15, // Große Mülltonne, fest je Stück
+  binContainer: 30, // Container, fest je Stück
+  extraDuft: 5, // Extra: Duft-Frische
+  extraPulver: 5, // Extra: BioTonnen Frischepulver
+  extraWasser: 5, // Extra: EcoBin Wasser-Service
+  aboDiscountPercent: 10, // Monatsabo-Rabatt auf den Tonnen-Grundpreis
+};
+async function getPrices(env) {
+  if (!env.ORDERS) return Object.assign({}, DEFAULT_PRICES);
+  try {
+    const raw = await env.ORDERS.get(PRICE_KEY);
+    if (!raw) return Object.assign({}, DEFAULT_PRICES);
+    return Object.assign({}, DEFAULT_PRICES, JSON.parse(raw));
+  } catch (_) {
+    return Object.assign({}, DEFAULT_PRICES);
+  }
+}
+async function savePrices(env, prices) {
+  if (!env.ORDERS) throw new Error("Kein KV-Speicher verfügbar");
+  await env.ORDERS.put(PRICE_KEY, JSON.stringify(prices));
+}
+function sanitizePrices(body) {
+  body = body || {};
+  const num = (v, fallback, min, max) => {
+    const n = Number(v);
+    if (!isFinite(n) || n < min || n > max) return fallback;
+    return Math.round(n * 100) / 100;
+  };
+  return {
+    binBase: num(body.binBase, DEFAULT_PRICES.binBase, 0, 500),
+    binAdditional: num(body.binAdditional, DEFAULT_PRICES.binAdditional, 0, 500),
+    binGross: num(body.binGross, DEFAULT_PRICES.binGross, 0, 500),
+    binContainer: num(body.binContainer, DEFAULT_PRICES.binContainer, 0, 1000),
+    extraDuft: num(body.extraDuft, DEFAULT_PRICES.extraDuft, 0, 200),
+    extraPulver: num(body.extraPulver, DEFAULT_PRICES.extraPulver, 0, 200),
+    extraWasser: num(body.extraWasser, DEFAULT_PRICES.extraWasser, 0, 200),
+    aboDiscountPercent: num(body.aboDiscountPercent, DEFAULT_PRICES.aboDiscountPercent, 0, 100),
+  };
+}
+
+/* ============================================================
+   E-MAIL-VORLAGEN (zentral in der KV gespeichert, ORDERS-Binding)
+   ------------------------------------------------------------
+   Einfaches Vorlagensystem für genau zwei feste Vorlagen:
+   "booking_accepted" und "booking_rejected". Jede Vorlage besteht
+   nur aus subject + body. Wird über /api/admin/email-templates
+   (GET zum Laden, PUT zum Speichern) verwaltet, geschützt mit
+   demselben ADMIN_TOKEN wie die übrigen Admin-Endpunkte. Bewusst
+   ohne Verknüpfung zu decideBooking()/buildAcceptedEmail() – das
+   ist eine spätere Erweiterung, kein Teil dieser Hauptfunktion.
+   ============================================================ */
+const EMAIL_TEMPLATES_KEY = "config:emailTemplates";
+const EMAIL_TEMPLATE_TYPES = ["booking_accepted", "booking_rejected"];
+const DEFAULT_EMAIL_TEMPLATES = {
+  booking_accepted: { subject: "", body: "" },
+  booking_rejected: { subject: "", body: "" },
+};
+async function getEmailTemplates(env) {
+  if (!env.ORDERS) return JSON.parse(JSON.stringify(DEFAULT_EMAIL_TEMPLATES));
+  try {
+    const raw = await env.ORDERS.get(EMAIL_TEMPLATES_KEY);
+    if (!raw) return JSON.parse(JSON.stringify(DEFAULT_EMAIL_TEMPLATES));
+    const stored = JSON.parse(raw);
+    const out = {};
+    for (const t of EMAIL_TEMPLATE_TYPES) {
+      out[t] = {
+        subject: (stored[t] && stored[t].subject) || "",
+        body: (stored[t] && stored[t].body) || "",
+      };
+    }
+    return out;
+  } catch (_) {
+    return JSON.parse(JSON.stringify(DEFAULT_EMAIL_TEMPLATES));
+  }
+}
+async function saveEmailTemplates(env, templates) {
+  if (!env.ORDERS) throw new Error("Kein KV-Speicher verfügbar");
+  await env.ORDERS.put(EMAIL_TEMPLATES_KEY, JSON.stringify(templates));
+}
+function sanitizeEmailTemplates(body) {
+  body = body || {};
+  const str = (v) => (typeof v === "string" ? v.slice(0, 20000) : "");
+  const out = {};
+  for (const t of EMAIL_TEMPLATE_TYPES) {
+    const tpl = body[t] || {};
+    out[t] = { subject: str(tpl.subject), body: str(tpl.body) };
+  }
+  return out;
+}
+
+// Ersetzt Platzhalter der Form {{platzhalter}} in Betreff/Nachricht einer
+// gespeicherten Vorlage durch die bereits vorhandenen Kundendaten der
+// Buchung. Unbekannte Platzhalter bleiben unverändert stehen (kein Fehler).
+function fillEmailPlaceholders(text, rec) {
+  if (!text) return text;
+  const map = {
+    name: rec.name || "",
+    email: rec.email || "",
+    datum: formatDateDe(rec.date),
+    tonnen: rec.binTypes || "-",
+    extras: rec.extras && rec.extras !== "keine" ? rec.extras : "-",
+    art: rec.abo ? "Monatsabo" : "Einmalige Reinigung",
+    preis: rec.amount ? String(rec.amount).replace(".", ",") + " €" : "-",
+    adresse: rec.address || "-",
+  };
+  return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key) => {
+    const k = key.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(map, k) ? map[k] : match;
+  });
+}
+
+// Baut den E-Mail-Entwurf für decideBooking(): nutzt die gespeicherte
+// Vorlage ("booking_accepted"/"booking_rejected"), sofern für den
+// jeweiligen Status Betreff UND Nachricht gespeichert sind, und setzt
+// dabei die bereits vorhandenen Kundendaten der Buchung ein. Ist keine
+// Vorlage gespeichert, greift der bisherige fest codierte E-Mail-Text
+// (buildAcceptedEmail/buildRejectedEmail) als Fallback.
+async function buildDecisionEmail(rec, newStatus, env) {
+  if (!rec.email) return null;
+  const templateKey = newStatus === "accepted" ? "booking_accepted" : "booking_rejected";
+  const fallback = newStatus === "accepted" ? buildAcceptedEmail(rec) : buildRejectedEmail(rec);
+  let templates;
+  try {
+    templates = await getEmailTemplates(env);
+  } catch (_) {
+    return fallback;
+  }
+  const tpl = templates && templates[templateKey];
+  const hasTemplate = tpl && tpl.subject && tpl.subject.trim() && tpl.body && tpl.body.trim();
+  if (!hasTemplate) return fallback;
+  return {
+    to: rec.email,
+    subject: fillEmailPlaceholders(tpl.subject, rec),
+    text: fillEmailPlaceholders(tpl.body, rec),
+  };
+}
+
 export default {
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(runScheduledNotifications(env));
+  },
+
   async fetch(request, env) {
     if (request.method === "OPTIONS") return handleCors();
     const url = new URL(request.url);
@@ -75,6 +324,7 @@ export default {
           clientId: env.PAYPAL_CLIENT_ID || null,
           planId: env.PAYPAL_PLAN_ID || null,
           env: env.PAYPAL_ENV === "live" ? "live" : "sandbox",
+          prices: await getPrices(env),
         });
       }
       if (url.pathname === "/api/orders" && request.method === "POST") {
@@ -111,6 +361,87 @@ export default {
       if (url.pathname === "/api/setup-plan" && request.method === "GET") {
         return jsonResponse(await setupPlan(env));
       }
+
+      /* -------- Admin: interne Buchungsverwaltung -------- */
+      if (url.pathname === "/api/admin/bookings" && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const status = url.searchParams.get("status") || "pending";
+        return jsonResponse(await listBookings(env, status));
+      }
+      if (
+        url.pathname.startsWith("/api/admin/bookings/") &&
+        url.pathname.endsWith("/accept") &&
+        request.method === "POST"
+      ) {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const id = decodeURIComponent(url.pathname.split("/")[4] || "");
+        return jsonResponse(await decideBooking(id, "accepted", env));
+      }
+      if (
+        url.pathname.startsWith("/api/admin/bookings/") &&
+        url.pathname.endsWith("/reject") &&
+        request.method === "POST"
+      ) {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const id = decodeURIComponent(url.pathname.split("/")[4] || "");
+        return jsonResponse(await decideBooking(id, "rejected", env));
+      }
+      if (
+        url.pathname.startsWith("/api/admin/bookings/") &&
+        url.pathname.endsWith("/cancel") &&
+        request.method === "POST"
+      ) {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const id = decodeURIComponent(url.pathname.split("/")[4] || "");
+        return jsonResponse(await cancelAdminBooking(id, env));
+      }
+      if (url.pathname.startsWith("/api/admin/bookings/") && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const id = decodeURIComponent(url.pathname.split("/")[4] || "");
+        return jsonResponse(await getBooking(env, id));
+      }
+
+      /* -------- Admin: Preise & Produkte (NEU) -------- */
+      if (url.pathname === "/api/admin/prices" && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        return jsonResponse(await getPrices(env));
+      }
+      if (url.pathname === "/api/admin/prices" && request.method === "PUT") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const body = await request.json();
+        const prices = sanitizePrices(body);
+        await savePrices(env, prices);
+        return jsonResponse(prices);
+      }
+
+      /* -------- Admin: E-Mail-Vorlagen (NEU) -------- */
+      if (url.pathname === "/api/admin/email-templates" && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        return jsonResponse(await getEmailTemplates(env));
+      }
+      if (url.pathname === "/api/admin/email-templates" && request.method === "PUT") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const body = await request.json();
+        const templates = sanitizeEmailTemplates(body);
+        await saveEmailTemplates(env, templates);
+        return jsonResponse(templates);
+      }
+
+      /* -------- Admin: Andere Nachrichten (Gmail) (NEU) -------- */
+      if (url.pathname === "/api/admin/other-messages" && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        return jsonResponse(await listOtherMessages(env));
+      }
+      if (
+        url.pathname.startsWith("/api/admin/other-messages/") &&
+        url.pathname.endsWith("/dismiss") &&
+        request.method === "POST"
+      ) {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const id = decodeURIComponent(url.pathname.split("/")[4] || "");
+        return jsonResponse(await dismissOtherMessage(env, id));
+      }
+
       return jsonResponse({ error: "Nicht gefunden" }, 404);
     } catch (err) {
       console.error("Worker-Fehler:", err.message);
@@ -163,18 +494,52 @@ async function captureOrder(orderID, env) {
   });
   const result = await res.json();
 
+  if (result.status !== "COMPLETED") {
+    const storedFailure = env.ORDERS ? await env.ORDERS.get(orderID) : null;
+    const failureData = storedFailure ? JSON.parse(storedFailure) : {};
+    await sendOneTimePaymentFailedEmail(env, {
+      name: failureData.booking?.name,
+      email: failureData.booking?.email,
+      orderID,
+      amount: failureData.amount,
+      status: result.status,
+      error: result.name || result.message || result.details?.[0]?.description || "Unbekannter PayPal-Fehler",
+    });
+  }
+
   if (result.status === "COMPLETED" && env.ORDERS) {
     const stored = await env.ORDERS.get(orderID);
     if (stored) {
       const { booking, amount } = JSON.parse(stored);
       const capturedAmount =
         result.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || amount;
+      const capture = result.purchase_units?.[0]?.payments?.captures?.[0];
+      await sendOneTimePaymentSuccessEmail(env, {
+        name: booking?.name,
+        email: booking?.email,
+        orderID,
+        amount: capturedAmount,
+        currency: capture?.amount?.currency_code || "EUR",
+        paymentDate: new Date().toISOString(),
+        transactionId: capture?.id || orderID,
+      });
       await sendBookingEmail(env, {
         typ: "Einmalzahlung",
         orderID,
         amount: capturedAmount,
         booking,
       });
+
+      // Persistenten Buchungsdatensatz (Status "pending") für die
+      // interne Admin-Verwaltung anlegen. Ändert nichts am Zahlungsablauf.
+      await createPendingBooking(env, {
+        id: orderID,
+        type: "einmalig",
+        booking,
+        amount: capturedAmount,
+        paypalRef: orderID,
+      });
+
       await env.ORDERS.delete(orderID);
     }
   }
@@ -321,6 +686,16 @@ async function confirmSubscription(subID, env) {
       );
       await env.ORDERS.put("tok:" + manageToken, subID);
       await env.ORDERS.delete(key);
+
+      // Persistenten Buchungsdatensatz (Status "pending") für die
+      // interne Admin-Verwaltung anlegen. Ändert nichts am Abo-Ablauf.
+      await createPendingBooking(env, {
+        id: subID,
+        type: "abo",
+        booking,
+        amount,
+        paypalRef: subID,
+      });
 
       if (b.email) {
         await sendCustomerManageLinkEmail(env, { name: b.name, email: b.email, manageToken, amount });
@@ -573,6 +948,367 @@ async function putSubRecord(env, subID, record) {
 }
 
 /* ============================================================
+   ADMIN: INTERNE BUCHUNGSVERWALTUNG
+   ------------------------------------------------------------
+   Nutzt ausschließlich die bereits vorhandene ORDERS-KV-Bindung.
+   Kein neues Framework, keine neue Datenbank.
+   ============================================================ */
+
+// Konstante-Zeit-Vergleich, damit der Admin-Token nicht per Timing-Angriff
+// erraten werden kann.
+function timingSafeEqual(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function checkAdminAuth(request, env) {
+  if (!env.ADMIN_TOKEN) return false; // ohne gesetztes Secret ist der Admin-Bereich komplett gesperrt
+  const authHeader = request.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  return timingSafeEqual(token, env.ADMIN_TOKEN);
+}
+
+// Wird nach erfolgreicher Zahlung (Einmalzahlung) bzw. nach bestätigtem Abo
+// aufgerufen. Legt NUR einen zusätzlichen, persistenten Datensatz für die
+// Admin-Ansicht an – die eigentliche Zahlungslogik bleibt unberührt.
+async function createPendingBooking(env, { id, type, booking, amount, paypalRef }) {
+  if (!env.ORDERS || !id) return;
+  const b = booking || {};
+  const record = {
+    id,
+    type, // "einmalig" | "abo"
+    status: "pending",
+    name: b.name || "",
+    email: b.email || "",
+    address: b.address || "",
+    date: b.date || "",
+    bins: b.bins ?? null,
+    binTypes: b.binTypes || "",
+    abo: !!b.abo,
+    extras: b.extras || "",
+    note: b.note || "",
+    amount: amount || null,
+    paypalRef: paypalRef || id,
+    createdAt: new Date().toISOString(),
+    decidedAt: null,
+  };
+  await env.ORDERS.put("booking:" + id, JSON.stringify(record));
+}
+
+async function listBookings(env, status) {
+  if (!env.ORDERS) return [];
+  const out = [];
+  let cursor;
+  for (let i = 0; i < 20; i++) {
+    // Sicherheitslimit gegen Endlosschleifen; für den erwarteten
+    // Buchungsumfang einer kleinen lokalen Firma weit ausreichend.
+    const page = await env.ORDERS.list({ prefix: "booking:", cursor });
+    for (const k of page.keys) {
+      const raw = await env.ORDERS.get(k.name);
+      if (!raw) continue;
+      const rec = JSON.parse(raw);
+      if (status === "all" || rec.status === status) out.push(rec);
+    }
+    if (page.list_complete || !page.cursor) break;
+    cursor = page.cursor;
+  }
+  out.sort((x, y) => (y.createdAt || "").localeCompare(x.createdAt || ""));
+  return out;
+}
+
+async function getBooking(env, id) {
+  if (!env.ORDERS || !id) return { error: "Ungültige ID" };
+  const raw = await env.ORDERS.get("booking:" + id);
+  if (!raw) return { error: "Buchung nicht gefunden" };
+  return JSON.parse(raw);
+}
+
+// Storniert einen bereits angenommenen Termin für die interne Verwaltung.
+// Die Buchung bleibt im KV erhalten und es wird keine PayPal-Rückerstattung
+// und kein automatischer Versand ausgelöst. Stattdessen wird ein fertiger
+// Gmail-Entwurf (an/Betreff/Text) zurückgegeben, den das Admin-Panel öffnet.
+function buildAdminCancellationEmail(rec) {
+  if (!rec.email) return null;
+  const name = rec.name || "";
+  const date = formatDateDe(rec.date);
+  const text = [
+    `Guten Tag ${name},`.trim(),
+    ``,
+    `leider müssen wir Ihnen mitteilen, dass Ihr bereits bestätigter EcoBin-Reinigungstermin am ${date} nachträglich abgesagt werden muss.`,
+    ``,
+    `Wir entschuldigen uns für die entstandenen Umstände und bedanken uns für Ihr Verständnis.`,
+    ``,
+    `Bei Fragen können Sie uns gerne kontaktieren.`,
+    ``,
+    `Freundliche Grüße`,
+    `Ihr EcoBin-Team`,
+  ].join("\n");
+  return {
+    to: rec.email,
+    subject: "Ihre EcoBin-Reinigung wurde nachträglich abgesagt",
+    text,
+  };
+}
+
+async function cancelAdminBooking(id, env) {
+  if (!env.ORDERS || !id) return { error: "Ungültige ID" };
+  const key = "booking:" + id;
+  const raw = await env.ORDERS.get(key);
+  if (!raw) return { error: "Buchung nicht gefunden" };
+  const rec = JSON.parse(raw);
+  if (rec.status !== "accepted") {
+    return { error: `Termin kann nicht abgesagt werden (Status: ${rec.status})`, status: rec.status };
+  }
+  rec.status = "cancelled";
+  rec.cancelledAt = new Date().toISOString();
+  await env.ORDERS.put(key, JSON.stringify(rec));
+  return { status: "cancelled", id, booking: rec, email: buildAdminCancellationEmail(rec) };
+}
+
+// Setzt den Status einer Buchung EINMALIG von "pending" auf "accepted"/
+// "rejected". Verschickt dabei KEINE E-Mail mehr selbst (siehe Hinweis
+// oben im Datei-Header) – stattdessen wird ein fertiger E-Mail-Entwurf
+// (an/Betreff/Text) zurückgegeben, den das Admin-Panel als Gmail-
+// Compose-Fenster öffnet. Der Admin verschickt die Mail dann manuell.
+// Der Entwurf nutzt die gespeicherte E-Mail-Vorlage ("booking_accepted"/
+// "booking_rejected", siehe buildDecisionEmail), sofern vorhanden, sonst
+// den bisherigen fest codierten Text als Fallback.
+// Ein zweiter Aufruf (Doppelklick, doppelter Request) verändert nichts
+// mehr, weil der Status dann nicht mehr "pending" ist.
+async function decideBooking(id, newStatus, env) {
+  if (!env.ORDERS || !id) return { error: "Ungültige ID" };
+  const key = "booking:" + id;
+  const raw = await env.ORDERS.get(key);
+  if (!raw) return { error: "Buchung nicht gefunden" };
+  const rec = JSON.parse(raw);
+  if (rec.status !== "pending") {
+    return { error: `Buchung wurde bereits bearbeitet (Status: ${rec.status})`, status: rec.status };
+  }
+  rec.status = newStatus;
+  rec.decidedAt = new Date().toISOString();
+  await env.ORDERS.put(key, JSON.stringify(rec));
+
+  const email = await buildDecisionEmail(rec, newStatus, env);
+  return { status: newStatus, id, email };
+}
+
+function formatDateDe(d) {
+  if (!d) return "-";
+  try {
+    return new Date(`${d}T00:00:00`).toLocaleDateString("de-DE");
+  } catch (_) {
+    return d;
+  }
+}
+
+// Baut nur noch den E-Mail-INHALT (an/Betreff/Text) für die Bestätigung –
+// verschickt wird nichts mehr serverseitig, siehe decideBooking().
+function buildAcceptedEmail(rec) {
+  if (!rec.email) return null;
+  const lines = [
+    `Hallo ${rec.name || ""},`.trim(),
+    ``,
+    `deine EcoBin-Buchung wurde bestätigt.`,
+    ``,
+    `Termin: ${formatDateDe(rec.date)}`,
+    `Tonnen: ${rec.binTypes || "-"}`,
+    rec.extras && rec.extras !== "keine" ? `Extras: ${rec.extras}` : null,
+    `Art: ${rec.abo ? "Monatsabo" : "Einmalige Reinigung"}`,
+    `Preis: ${rec.amount ? String(rec.amount).replace(".", ",") + " €" : "-"}`,
+    `Adresse: ${rec.address || "-"}`,
+    ``,
+    `Wir freuen uns auf den Termin!`,
+    `Dein EcoBin-Team`,
+  ].filter((l) => l !== null);
+  return { to: rec.email, subject: "Ihre EcoBin-Buchung wurde bestätigt", text: lines.join("\n") };
+}
+
+// Baut nur noch den E-Mail-INHALT (an/Betreff/Text) für die Ablehnung –
+// verschickt wird nichts mehr serverseitig, siehe decideBooking().
+function buildRejectedEmail(rec) {
+  if (!rec.email) return null;
+  const lines = [
+    `Hallo ${rec.name || ""},`.trim(),
+    ``,
+    `leider können wir deine angefragte Buchung (Wunschtermin: ${formatDateDe(
+      rec.date
+    )}) so nicht bestätigen.`,
+    `Bitte melde dich gerne bei uns, damit wir gemeinsam einen passenden Termin finden.`,
+    ``,
+    `Dein EcoBin-Team`,
+  ];
+  return { to: rec.email, subject: "Ihre EcoBin-Buchungsanfrage", text: lines.join("\n") };
+}
+
+/* ============================================================
+   ADMIN: ANDERE NACHRICHTEN AUS GMAIL (NEU)
+   ------------------------------------------------------------
+   Holt die neuesten Nachrichten aus dem Gmail-Posteingang von
+   ecobin.badvilbel@gmail.com über die Gmail-API und filtert dabei
+   alle automatischen Benachrichtigungen heraus, die der Worker selbst
+   über Resend an sich selbst verschickt (Buchungen, Zahlungen,
+   Kündigungen). Übrig bleiben "echte" Nachrichten von Kunden/Dritten.
+   ============================================================ */
+
+// Tauscht das langlebige Refresh-Token gegen ein kurzlebiges
+// Zugriffstoken für die Gmail-API. Wird bei jedem Admin-Aufruf neu
+// geholt (Verwaltungsansicht mit geringem Aufruf-Volumen, daher
+// bewusst kein Caching, um die Sache einfach zu halten).
+async function getGmailAccessToken(env) {
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_REFRESH_TOKEN) {
+    throw new Error("Gmail-Zugangsdaten (GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN) sind nicht gesetzt");
+  }
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: env.GMAIL_CLIENT_ID,
+      client_secret: env.GMAIL_CLIENT_SECRET,
+      refresh_token: env.GMAIL_REFRESH_TOKEN,
+      grant_type: "refresh_token",
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error("Gmail-Zugriffstoken konnte nicht abgerufen werden: " + JSON.stringify(data));
+  return data.access_token;
+}
+
+// Extrahiert Name/E-Mail aus einem "From"-Header wie
+// '"Julia Berg" <julia.berg@example.com>' oder 'julia.berg@example.com'.
+function parseFromHeader(from) {
+  if (!from) return { name: "", email: "" };
+  const match = from.match(/^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/);
+  if (match) {
+    return { name: match[1].trim(), email: match[2].trim().toLowerCase() };
+  }
+  return { name: "", email: from.trim().toLowerCase() };
+}
+
+function headerValue(headers, name) {
+  const h = (headers || []).find((x) => x.name.toLowerCase() === name.toLowerCase());
+  return h ? h.value : "";
+}
+
+// Dekodiert den Base64URL-kodierten Nachrichtentext der Gmail-API.
+function decodeBase64Url(data) {
+  if (!data) return "";
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch (_) {
+    return "";
+  }
+}
+
+// Sucht rekursiv im MIME-Payload nach dem ersten "text/plain"-Teil.
+function extractPlainText(payload) {
+  if (!payload) return "";
+  if (payload.mimeType === "text/plain" && payload.body?.data) {
+    return decodeBase64Url(payload.body.data);
+  }
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      const text = extractPlainText(part);
+      if (text) return text;
+    }
+  }
+  // Fallback: text/html grob von Tags befreien, falls kein Plaintext-Teil da ist.
+  if (payload.mimeType === "text/html" && payload.body?.data) {
+    const html = decodeBase64Url(payload.body.data);
+    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+  return "";
+}
+
+async function listOtherMessages(env) {
+  const accessToken = await getGmailAccessToken(env);
+
+  // "category:primary" nutzt Gmails eigene Kategorisierung: Newsletter,
+  // Werbung, Social-/Update-Benachrichtigungen (z. B. "Sie haben sich bei
+  // X angemeldet") landen bei Gmail automatisch in "Updates"/"Promotions"/
+  // "Social"/"Forums" und werden dadurch schon serverseitig ausgeblendet.
+  // "-from:onboarding@resend.dev" filtert zusätzlich die automatischen
+  // Buchungs-/Zahlungs-/Kündigungs-Mails heraus, die der Worker selbst
+  // über Resend an dieses Postfach schickt.
+  const q = encodeURIComponent(`in:inbox category:primary -from:${AUTOMATED_SENDER}`);
+  const listRes = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=${q}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const listData = await listRes.json();
+  const ids = (listData.messages || []).map((m) => m.id);
+  if (!ids.length) return [];
+
+  const messages = [];
+  for (const id of ids) {
+    const msgRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const msg = await msgRes.json();
+    if (!msg || !msg.payload) continue;
+
+    const headers = msg.payload.headers || [];
+    const { name, email } = parseFromHeader(headerValue(headers, "From"));
+
+    // Doppelte Absicherung: auch hier nochmal automatische Absender
+    // (Anmelde-Benachrichtigungen, Newsletter, System-Mails usw.)
+    // herausfiltern, falls die Gmail-Suche mal einen Ausreißer liefert.
+    if (isAutomatedSender(email)) continue;
+
+    // Wichtigster Filter für "echte" Kundenmails: Massen-/Newsletter-/
+    // Firmen-Mails enthalten (rechtlich vorgeschrieben) fast immer einen
+    // "List-Unsubscribe"-Header ("Abmelden"-Link). Persönlich getippte
+    // Nachrichten von echten Menschen haben diesen Header nie. Ebenso
+    // "Precedence: bulk/list/junk" ist ein klassisches Massen-Mail-Signal.
+    if (headerValue(headers, "List-Unsubscribe")) continue;
+    const precedence = headerValue(headers, "Precedence").toLowerCase();
+    if (precedence === "bulk" || precedence === "list" || precedence === "junk") continue;
+    if (headerValue(headers, "List-Id")) continue;
+    if (headerValue(headers, "Auto-Submitted") && headerValue(headers, "Auto-Submitted").toLowerCase() !== "no") continue;
+
+    const subject = headerValue(headers, "Subject");
+    const body = extractPlainText(msg.payload) || msg.snippet || "";
+    const internalDateMs = Number(msg.internalDate || 0);
+    const receivedAt = internalDateMs ? new Date(internalDateMs).toISOString().slice(0, 10) : "";
+
+    messages.push({
+      id: msg.id,
+      name: name || email || "Unbekannt",
+      email,
+      subject,
+      message: body.trim(),
+      receivedAt,
+    });
+  }
+
+  messages.sort((a, b) => (b.receivedAt || "").localeCompare(a.receivedAt || ""));
+  return messages;
+}
+
+// Verschiebt eine Nachricht in Gmail in den Papierkorb, damit sie beim
+// nächsten Laden nicht mehr unter "Andere Nachrichten" auftaucht.
+async function dismissOtherMessage(env, id) {
+  if (!id) return { error: "Ungültige ID" };
+  const accessToken = await getGmailAccessToken(env);
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/trash`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const details = await res.json().catch(() => null);
+    return { error: "Nachricht konnte nicht entfernt werden", details };
+  }
+  return { ok: true, id };
+}
+
+/* ============================================================
    E-MAIL-VERSAND ueber Resend (kostenlos bis 3.000 E-Mails/Monat)
 
    WICHTIGER HINWEIS: Mit dem Absender "onboarding@resend.dev" (ohne
@@ -583,7 +1319,11 @@ async function putSubRecord(env, subID, record) {
    Test-Absender fehlschlagen, bis eine eigene Domain bei Resend
    verifiziert und FROM_EMAIL entsprechend angepasst wird. Deshalb wird
    der Verwaltungslink zusätzlich immer direkt auf der Website angezeigt
-   und in der Buchungs-E-Mail an EcoBin mitgeschickt.
+   und in der Buchungs-E-Mail an EcoBin mitgeschickt. Aus demselben Grund
+   verschickt decideBooking() (Annehmen/Ablehnen einer Buchung) seit
+   Kurzem KEINE E-Mail mehr automatisch über diese Funktion, sondern
+   liefert nur noch den fertigen Text an das Admin-Panel zurück (siehe
+   buildAcceptedEmail/buildRejectedEmail weiter oben).
    ============================================================ */
 async function sendEmail(env, { to, subject, text, replyTo }) {
   if (!env.RESEND_API_KEY || !to) return;
@@ -627,9 +1367,48 @@ async function sendBookingEmail(env, { typ, orderID, amount, booking, manageToke
   }
   await sendEmail(env, {
     to: notifyEmail(env),
-    subject: `Neue Buchung – ${typ} (${amount} €)`,
+    subject: `🔔 Neue Buchung – ${typ} (${amount} €)`,
     text: lines.join("\n"),
     replyTo: b.email || undefined,
+  });
+}
+
+async function sendOneTimePaymentSuccessEmail(env, { name, email, orderID, amount, currency, paymentDate, transactionId }) {
+  const text = [
+    `Neue PayPal-Zahlung für EcoBin.`,
+    ``,
+    `Kunde: ${name || "-"}`,
+    `E-Mail: ${email || "-"}`,
+    `PayPal-Order-ID: ${orderID || "-"}`,
+    `Gezahlter Betrag: ${amount || "-"} ${currency || "EUR"}`,
+    `Zahlungsdatum: ${paymentDate || new Date().toISOString()}`,
+    `Transaktions-ID: ${transactionId || "-"}`,
+  ].join("\n");
+  await sendEmail(env, {
+    to: notifyEmail(env),
+    subject: "💳 Neue PayPal-Zahlung",
+    text,
+    replyTo: email || undefined,
+  });
+}
+
+async function sendOneTimePaymentFailedEmail(env, { name, email, orderID, amount, status, error }) {
+  const text = [
+    `Eine PayPal-Zahlung für EcoBin konnte nicht erfolgreich abgeschlossen werden.`,
+    ``,
+    `Kunde: ${name || "-"}`,
+    `E-Mail: ${email || "-"}`,
+    `PayPal-Order-ID: ${orderID || "-"}`,
+    `Betrag: ${amount || "-"} EUR`,
+    `Status: ${status || "-"}`,
+    `Fehler: ${error || "-"}`,
+    `Zeitpunkt: ${new Date().toISOString()}`,
+  ].join("\n");
+  await sendEmail(env, {
+    to: notifyEmail(env),
+    subject: "❌ Zahlungsfehler",
+    text,
+    replyTo: email || undefined,
   });
 }
 
@@ -642,7 +1421,7 @@ async function sendPaymentSuccessEmail(env, { name, email, subscriptionId, amoun
     `Zahlungsdatum: ${paymentDate}`,
     `Transaktions-ID: ${transactionId || "-"}`,
   ].join("\n");
-  await sendEmail(env, { to: notifyEmail(env), subject: "EcoBin – Monatszahlung erhalten", text });
+  await sendEmail(env, { to: notifyEmail(env), subject: "💳 Monatszahlung erfolgreich", text });
 }
 
 async function sendPaymentFailedEmail(env, { name, email, subscriptionId, amount, date, status, eventId }) {
@@ -655,7 +1434,7 @@ async function sendPaymentFailedEmail(env, { name, email, subscriptionId, amount
     `PayPal-Status: ${status}`,
     `Event-ID: ${eventId || "-"}`,
   ].join("\n");
-  await sendEmail(env, { to: notifyEmail(env), subject: "EcoBin – Monatszahlung fehlgeschlagen", text });
+  await sendEmail(env, { to: notifyEmail(env), subject: "⚠️ Monatszahlung fehlgeschlagen", text });
 }
 
 async function sendCancellationEmail(env, { name, email, subscriptionId, cancelledAt, lastPaymentAt, source }) {
@@ -668,7 +1447,7 @@ async function sendCancellationEmail(env, { name, email, subscriptionId, cancell
     `Status: CANCELLED`,
     `Ausgelöst durch: ${source || "-"}`,
   ].join("\n");
-  await sendEmail(env, { to: notifyEmail(env), subject: "EcoBin – Monatsabo gekündigt", text });
+  await sendEmail(env, { to: notifyEmail(env), subject: "🔄 Abo gekündigt", text });
 }
 
 async function sendCustomerManageLinkEmail(env, { name, email, manageToken, amount }) {
@@ -688,6 +1467,110 @@ async function sendCustomerManageLinkEmail(env, { name, email, manageToken, amou
 function buildManageUrl(env, manageToken) {
   const base = env.SITE_URL || "https://ecobin-badvilbel.de";
   return `${base.replace(/\/$/, "")}/?manage=${manageToken}`;
+}
+
+
+/* ============================================================
+   AUTOMATISCHE ADMIN-BENACHRICHTIGUNGEN
+   ------------------------------------------------------------
+   Läuft über einen Cloudflare-Cron-Trigger. Dadurch funktioniert
+   die Benachrichtigung auch dann, wenn die Verwaltungsseite
+   gerade nicht geöffnet ist.
+   ============================================================ */
+
+async function runScheduledNotifications(env) {
+  if (!env.ORDERS || !env.RESEND_API_KEY) return;
+
+  await Promise.allSettled([
+    notifyNewGmailMessages(env),
+    notifyUpcomingAppointments(env),
+  ]);
+}
+
+async function notifyNewGmailMessages(env) {
+  if (!env.GMAIL_CLIENT_ID || !env.GMAIL_CLIENT_SECRET || !env.GMAIL_REFRESH_TOKEN) return;
+
+  let messages;
+  try {
+    messages = await listOtherMessages(env);
+  } catch (err) {
+    console.error("Gmail-Benachrichtigung fehlgeschlagen:", err.message);
+    return;
+  }
+
+  for (const msg of messages || []) {
+    if (!msg?.id) continue;
+    const key = "notify:gmail:" + msg.id;
+    if (await env.ORDERS.get(key)) continue;
+
+    const text = [
+      `Eine neue Nachricht ist im EcoBin-Gmail-Postfach eingegangen.`,
+      ``,
+      `Von: ${msg.name || "-"} <${msg.email || "-"}>`,
+      `Betreff: ${msg.subject || "-"}`,
+      `Eingang: ${msg.receivedAt || "-"}`,
+      ``,
+      `Nachricht:`,
+      msg.message || "(kein Nachrichtentext)",
+    ].join("\n");
+
+    await sendEmail(env, {
+      to: notifyEmail(env),
+      subject: "📩 Neue Nachricht",
+      text,
+      replyTo: msg.email || undefined,
+    });
+
+    await env.ORDERS.put(key, "1", { expirationTtl: 60 * 60 * 24 * 90 });
+  }
+}
+
+async function notifyUpcomingAppointments(env) {
+  const bookings = await listBookings(env, "accepted");
+  const now = new Date();
+
+  // "Steht bevor" = am Vortag des Reinigungstermins.
+  // Die Berechnung erfolgt bewusst in Europe/Berlin, damit die deutsche
+  // Datumsangabe nicht durch UTC um einen Tag verrutscht.
+  const berlinDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+
+  const today = new Date(`${berlinDate}T00:00:00Z`);
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const tomorrowKey = tomorrow.toISOString().slice(0, 10);
+
+  for (const booking of bookings) {
+    if (!booking?.date || booking.date !== tomorrowKey) continue;
+
+    const key = `notify:appointment:${booking.id}:${booking.date}`;
+    if (await env.ORDERS.get(key)) continue;
+
+    const text = [
+      `Ein EcoBin-Reinigungstermin steht morgen an.`,
+      ``,
+      `Kunde: ${booking.name || "-"}`,
+      `E-Mail: ${booking.email || "-"}`,
+      `Adresse: ${booking.address || "-"}`,
+      `Reinigungstermin: ${formatDateDe(booking.date)}`,
+      `Tonnen: ${booking.binTypes || booking.bins || "-"}`,
+      `Extras: ${booking.extras || "keine"}`,
+      `Betrag: ${booking.amount || "-"} EUR`,
+      `Buchungs-ID: ${booking.id || "-"}`,
+    ].join("\n");
+
+    await sendEmail(env, {
+      to: notifyEmail(env),
+      subject: "📅 Reinigungstermin steht bevor",
+      text,
+      replyTo: booking.email || undefined,
+    });
+
+    await env.ORDERS.put(key, "1", { expirationTtl: 60 * 60 * 24 * 30 });
+  }
 }
 
 /* ============================================================
@@ -711,5 +1594,5 @@ function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": ALLOWED_ORIGIN } });
 }
 function handleCors() {
-  return new Response(null, { headers: { "Access-Control-Allow-Origin": ALLOWED_ORIGIN, "Access-Control-Allow-Methods": "POST, GET, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } });
+  return new Response(null, { headers: { "Access-Control-Allow-Origin": ALLOWED_ORIGIN, "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" } });
 }
