@@ -1,6 +1,6 @@
 # PROJECT_STATUS – EcoBin Backend/Admin
 
-Stand: 2026-08-11 (UI-Überarbeitung: übersichtlicheres Dashboard und Benachrichtigungen)
+Stand: 2026-08-10 (4. Änderung: Termine im Kalender anklickbar)
 
 ## Aktueller Funktionsumfang (worker.js)
 
@@ -60,20 +60,6 @@ Bewusst NICHT gemacht (wie beauftragt):
   (z. B. `{{name}}`), keine Versionierung/History.
 - Keine Oberfläche im Admin-Panel (`Admin-Verwaltung.html` /
   `script.js`) für die neuen Endpunkte – nur die Backend-API.
-
-
-
-## Änderungen in diesem Schritt (übersichtlichere Admin-Oberfläche)
-
-Nur `Admin-Verwaltung.html` wurde für die Bedienoberfläche angepasst; `worker.js` und die Backend-Logik wurden nicht verändert.
-
-- Dashboard kompakter aufgebaut: weniger Abstand, kleinere Karten und Tabellen, klarere visuelle Hierarchie.
-- Offene Buchungen und offene Monatsabo-Anfragen werden in der Navigation mit roten Zählern hervorgehoben.
-- Dashboard-Kennzahlen „Offene Buchungen“ und „Aktive Monatsabos“ sind direkt anklickbar.
-- „Aktuelle Benachrichtigungen“ im Dashboard werden als kompakte, schnell erfassbare Zeilen dargestellt.
-- Neue/ungeklärte Buchungen sind im Dashboard und Postfach sofort über rote Hinweise erkennbar.
-- Tabellen, Postfachkarten, Tabs und Einstellungsbereiche wurden optisch verdichtet, ohne bestehende Funktionen zu entfernen.
-- Responsive Darstellung für kleinere Bildschirme wurde bei den neuen Abständen und Karten berücksichtigt.
 
 ### Kurztest (lokal, gegen Mock-KV, ohne echtes Deployment)
 
@@ -434,3 +420,16 @@ wird am Vortag versendet.
 
 Für die Gmail-Benachrichtigung müssen die bereits vorgesehenen Secrets
 `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` und `GMAIL_REFRESH_TOKEN` vorhanden sein.
+
+
+## Rabattcode-Fix (2026-08-12)
+- Öffentliche Rabattcode-Prüfung über `GET /api/discount-codes/validate?code=...` ergänzt.
+- Admin-Verwaltung für Rabattcodes mit Hinzufügen, Bearbeiten und Löschen ergänzt.
+- Rabattcodes werden im KV unter `config:discountCodes` gespeichert.
+- Website zeigt nach „Anwenden“ direkt z. B. `✓ 15% Rabatt` an.
+- Der angezeigte Gesamtpreis wird sofort um den Rabatt reduziert.
+- Genau ein Rabattcode pro Buchung; Eingaben werden normalisiert (Leerzeichen entfernt, Großschreibung).
+- PayPal-Einmalzahlung und Monatsabo übergeben den angewendeten Rabattcode und den Grundpreis an den Worker.
+- Worker prüft den Code beim Erstellen der Zahlung erneut und berechnet den endgültigen Zahlungsbetrag serverseitig.
+- `worker.js` ist in Website- und Admin-ZIP identisch.
+- Geprüft: JavaScript-Syntax von Worker, Admin-Script, Website-Script und PayPal-Script mit `node --check`.

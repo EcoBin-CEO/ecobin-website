@@ -159,6 +159,174 @@ function paypalApiBase(env) {
 function notifyEmail(env) {
   return env.NOTIFY_EMAIL || DEFAULT_NOTIFY_EMAIL;
 }
+/* ============================================================
+   RABATTCODES
+   Zentral im KV gespeichert. Öffentliche Prüfung nur über
+   GET /api/discount-codes/validate?code=...
+   ============================================================ */
+const DISCOUNT_CODES_KEY = "config:discountCodes";
+const DISCOUNT_CODE_PREFIX = "config:discountCode:";
+
+function normalizeDiscountCode(value) {
+  return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function sanitizeDiscountPercent(value, fallback = 0) {
+  const n = Number(value);
+  if (!isFinite(n) || n < 0 || n > 100) return fallback;
+  return Math.round(n * 100) / 100;
+}
+
+async function getDiscountCodes(env) {
+  if (!env.ORDERS) return {};
+  const out = {};
+
+  // Hauptspeicher (kompatibel mit den bisherigen Versionen).
+  try {
+    const raw = await env.ORDERS.get(DISCOUNT_CODES_KEY);
+    if (raw) {
+      const stored = JSON.parse(raw);
+      if (stored && typeof stored === "object" && !Array.isArray(stored)) {
+        for (const [rawCode, rawValue] of Object.entries(stored)) {
+          const code = normalizeDiscountCode(rawCode);
+          const percent = sanitizeDiscountPercent(
+            rawValue && typeof rawValue === "object" ? rawValue.percent : rawValue,
+            -1
+          );
+          if (code && percent >= 0 && percent <= 100) out[code] = { percent };
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Zusätzlich einzelne KV-Einträge lesen. So bleiben Rabattcodes robust
+  // verfügbar, auch wenn ältere Versionen die Liste anders gespeichert haben.
+  try {
+    let cursor;
+    for (let i = 0; i < 10; i++) {
+      const page = await env.ORDERS.list({ prefix: DISCOUNT_CODE_PREFIX, cursor });
+      for (const key of page.keys || []) {
+        const rawCode = key.name.slice(DISCOUNT_CODE_PREFIX.length);
+        const code = normalizeDiscountCode(rawCode);
+        if (!code) continue;
+        const raw = await env.ORDERS.get(key.name);
+        if (!raw) continue;
+        const value = JSON.parse(raw);
+        const percent = sanitizeDiscountPercent(
+          value && typeof value === "object" ? value.percent : value,
+          -1
+        );
+        if (percent >= 0 && percent <= 100) out[code] = { percent };
+      }
+      if (page.list_complete || !page.cursor) break;
+      cursor = page.cursor;
+    }
+  } catch (_) {}
+
+  return out;
+}
+
+async function saveDiscountCodes(env, codes) {
+  if (!env.ORDERS) throw new Error("Kein KV-Speicher verfügbar");
+
+  const clean = sanitizeDiscountCodes(codes);
+
+  // Kompatibler Gesamtbestand.
+  await env.ORDERS.put(DISCOUNT_CODES_KEY, JSON.stringify(clean));
+
+  // Zusätzlich jeden Code einzeln speichern.
+  let cursor;
+  const existingKeys = [];
+  for (let i = 0; i < 10; i++) {
+    const page = await env.ORDERS.list({ prefix: DISCOUNT_CODE_PREFIX, cursor });
+    for (const key of page.keys || []) existingKeys.push(key.name);
+    if (page.list_complete || !page.cursor) break;
+    cursor = page.cursor;
+  }
+
+  const keep = new Set(Object.keys(clean).map(normalizeDiscountCode));
+  await Promise.all(
+    existingKeys
+      .filter((key) => !keep.has(normalizeDiscountCode(key.slice(DISCOUNT_CODE_PREFIX.length))))
+      .map((key) => env.ORDERS.delete(key))
+  );
+
+  await Promise.all(
+    Object.entries(clean).map(([code, value]) =>
+      env.ORDERS.put(DISCOUNT_CODE_PREFIX + code, JSON.stringify(value))
+    )
+  );
+}
+function sanitizeDiscountCodes(body) {
+  const out = {};
+  const input = body && typeof body === "object" ? body : {};
+
+  // Unterstützt sowohl das interne Format
+  //   { "FIRSTMONTH": { "percent": 15 } }
+  // als auch das einfache Admin-Format
+  //   { "code": "FIRSTMONTH", "percent": 15 }
+  // sowie { codes: { ... } } und Arrays mit {code, percent}.
+  if (Array.isArray(input)) {
+    for (const item of input) {
+      if (!item || typeof item !== "object") continue;
+      const code = normalizeDiscountCode(item.code || item.rabattcode || item.name || "");
+      const percent = sanitizeDiscountPercent(
+        item.percent ?? item.discount ?? item.rabatt ?? item.value,
+        -1
+      );
+      if (!code || !/^[A-Z0-9_-]+$/.test(code) || percent < 0 || percent > 100) continue;
+      out[code] = { percent };
+    }
+    return out;
+  }
+
+  if (input.codes && typeof input.codes === "object" && !Array.isArray(input.codes)) {
+    return sanitizeDiscountCodes(input.codes);
+  }
+
+  if (
+    typeof input.code === "string" ||
+    typeof input.rabattcode === "string" ||
+    typeof input.name === "string"
+  ) {
+    const code = normalizeDiscountCode(input.code || input.rabattcode || input.name || "");
+    const percent = sanitizeDiscountPercent(
+      input.percent ?? input.discount ?? input.rabatt ?? input.value,
+      -1
+    );
+    if (code && /^[A-Z0-9_-]+$/.test(code) && percent >= 0 && percent <= 100) {
+      out[code] = { percent };
+    }
+    return out;
+  }
+
+  for (const [rawCode, rawValue] of Object.entries(input)) {
+    const code = normalizeDiscountCode(rawCode);
+    const percent = sanitizeDiscountPercent(
+      rawValue && typeof rawValue === "object" ? rawValue.percent : rawValue,
+      -1
+    );
+    if (!code || !/^[A-Z0-9_-]+$/.test(code) || percent < 0 || percent > 100) continue;
+    out[code] = { percent };
+  }
+  return out;
+}
+
+async function findDiscountCode(env, code) {
+  const normalized = normalizeDiscountCode(code);
+  if (!normalized) return null;
+  const codes = await getDiscountCodes(env);
+  return codes[normalized] ? { code: normalized, percent: codes[normalized].percent } : null;
+}
+
+function applyDiscountToAmount(baseAmount, percent) {
+  const base = Number(baseAmount);
+  if (!isFinite(base) || base <= 0) return null;
+  const p = sanitizeDiscountPercent(percent, 0);
+  return Math.max(0, base * (1 - p / 100)).toFixed(2);
+}
+
+
 
 /* ============================================================
    PREISE & PRODUKTE (zentral in der KV gespeichert, ORDERS-Binding)
@@ -414,7 +582,60 @@ export default {
         return jsonResponse(prices);
       }
 
-      /* -------- Admin: E-Mail-Vorlagen (NEU) -------- */
+      /* -------- Rabattcodes: öffentliche Prüfung + Admin-Verwaltung --------
+         Trailing slash wird bewusst toleriert, damit /discount-codes und
+         /discount-codes/ identisch funktionieren. Zusätzlich akzeptieren wir
+         POST beim Speichern als Fallback für Umgebungen, die PUT nicht sauber
+         durchreichen. */
+      const discountPath = url.pathname.replace(/\/+$/, "") || "/";
+      if (discountPath === "/api/discount-codes/validate" && request.method === "GET") {
+        const code = url.searchParams.get("code") || "";
+        const discount = await findDiscountCode(env, code);
+        if (!discount) return jsonResponse({ valid: false, error: "Rabattcode nicht gefunden" }, 404);
+        return jsonResponse({ valid: true, code: discount.code, percent: discount.percent });
+      }
+      if (discountPath === "/api/admin/discount-codes" && request.method === "GET") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        return jsonResponse(await getDiscountCodes(env));
+      }
+      if (discountPath === "/api/admin/discount-codes" && (request.method === "PUT" || request.method === "POST")) {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const body = await request.json();
+
+        // Unterstützt die aktuelle Admin-Seite (komplette Liste) und
+        // zusätzlich einzelne Datensätze als {code, percent}.
+        const isSingleCode =
+          body &&
+          typeof body === "object" &&
+          !Array.isArray(body) &&
+          (
+            typeof body.code === "string" ||
+            typeof body.rabattcode === "string" ||
+            typeof body.name === "string"
+          );
+
+        let codes;
+        if (isSingleCode) {
+          codes = await getDiscountCodes(env);
+          Object.assign(codes, sanitizeDiscountCodes(body));
+        } else {
+          codes = sanitizeDiscountCodes(body);
+        }
+
+        await saveDiscountCodes(env, codes);
+        const saved = await getDiscountCodes(env);
+        return jsonResponse(saved);
+      }
+      if (discountPath.startsWith("/api/admin/discount-codes/") && request.method === "DELETE") {
+        if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
+        const code = normalizeDiscountCode(decodeURIComponent(discountPath.split("/")[4] || ""));
+        const codes = await getDiscountCodes(env);
+        if (!codes[code]) return jsonResponse({ error: "Rabattcode nicht gefunden" }, 404);
+        delete codes[code];
+        await saveDiscountCodes(env, codes);
+        return jsonResponse({ ok: true, codes });
+      }
+    /* -------- Admin: E-Mail-Vorlagen (NEU) -------- */
       if (url.pathname === "/api/admin/email-templates" && request.method === "GET") {
         if (!checkAdminAuth(request, env)) return jsonResponse({ error: "Nicht autorisiert" }, 401);
         return jsonResponse(await getEmailTemplates(env));
@@ -467,7 +688,13 @@ async function getAccessToken(env) {
    ============================================================ */
 async function createOrder(body, env) {
   const token = await getAccessToken(env);
-  const amount = sanitizeAmount(body.amount, "10.00");
+  const booking = body.booking || {};
+  const baseAmount = sanitizeAmount(booking.baseAmount, "0.00");
+  const requestedDiscountCode = normalizeDiscountCode(booking.discountCode || "");
+  const discount = await findDiscountCode(env, requestedDiscountCode);
+  if (requestedDiscountCode && !discount) return { error: "Ungültiger oder nicht mehr verfügbarer Rabattcode" };
+  const calculatedAmount = discount ? applyDiscountToAmount(baseAmount, discount.percent) : null;
+  const amount = sanitizeAmount(calculatedAmount || body.amount, "10.00");
   const res = await fetch(`${paypalApiBase(env)}/v2/checkout/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -479,7 +706,7 @@ async function createOrder(body, env) {
   const order = await res.json();
 
   if (order.id && env.ORDERS) {
-    await env.ORDERS.put(order.id, JSON.stringify({ booking: body.booking || {}, amount }), {
+    await env.ORDERS.put(order.id, JSON.stringify({ booking: Object.assign({}, booking, { discountCode: discount?.code || "", discountPercent: discount?.percent || 0 }), amount }), {
       expirationTtl: 60 * 60 * 24, // 24h – danach automatisch geloescht
     });
   }
@@ -603,7 +830,13 @@ async function setupPlan(env) {
    ============================================================ */
 async function createSubscription(body, env) {
   const token = await getAccessToken(env);
-  const amount = sanitizeAmount(body.amount, "9.00");
+  const booking = body.booking || {};
+  const baseAmount = sanitizeAmount(booking.baseAmount, "0.00");
+  const requestedDiscountCode = normalizeDiscountCode(booking.discountCode || "");
+  const discount = await findDiscountCode(env, requestedDiscountCode);
+  if (requestedDiscountCode && !discount) return { error: "Ungültiger oder nicht mehr verfügbarer Rabattcode" };
+  const calculatedAmount = discount ? applyDiscountToAmount(baseAmount, discount.percent) : null;
+  const amount = sanitizeAmount(calculatedAmount || body.amount, "9.00");
   const planId = body.plan_id || env.PAYPAL_PLAN_ID;
   if (!planId) return { error: "plan_id fehlt" };
 
@@ -627,7 +860,7 @@ async function createSubscription(body, env) {
   const sub = await res.json();
 
   if (sub.id && env.ORDERS) {
-    await env.ORDERS.put("sub:" + sub.id, JSON.stringify({ booking: body.booking || {}, amount }), {
+    await env.ORDERS.put("sub:" + sub.id, JSON.stringify({ booking: Object.assign({}, booking, { discountCode: discount?.code || "", discountPercent: discount?.percent || 0 }), amount }), {
       expirationTtl: 60 * 60 * 24,
     });
   }
@@ -1591,7 +1824,7 @@ function generateToken() {
 }
 
 function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": ALLOWED_ORIGIN } });
+  return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache", "Access-Control-Allow-Origin": ALLOWED_ORIGIN } });
 }
 function handleCors() {
   return new Response(null, { headers: { "Access-Control-Allow-Origin": ALLOWED_ORIGIN, "Access-Control-Allow-Methods": "POST, GET, PUT, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization" } });
