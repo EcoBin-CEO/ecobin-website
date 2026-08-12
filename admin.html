@@ -1141,6 +1141,7 @@
       if (el) el.value = settings[key] || "";
     });
     loadPreise();
+    loadDiscountCodes();
     loadEmailVorlagen();
   }
   document.querySelectorAll("[data-settings-toggle]").forEach((head) => {
@@ -2441,6 +2442,132 @@
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
   document.querySelectorAll(".sb-item").forEach((btn) => btn.addEventListener("click", closeSidebar));
 
+
+  // ---------- Rabattcodes ----------
+  let discountCodesCache = {};
+  let discountEditingCode = "";
+
+  function normalizeDiscountCodeClient(value) {
+    return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
+  }
+
+  function renderDiscountCodes() {
+    const list = document.getElementById("dc-list");
+    if (!list) return;
+    const entries = Object.entries(discountCodesCache || {}).sort((a, b) => a[0].localeCompare(b[0]));
+    if (!entries.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Noch keine Rabattcodes angelegt.</div>';
+      return;
+    }
+    list.innerHTML = entries.map(([code, value]) => {
+      const percent = Number(value && typeof value === "object" ? value.percent : value) || 0;
+      return '<div class="dc-item"><div><div class="dc-code">' + escapeHtml(code) + '</div><div class="dc-percent">' + percent + '% Rabatt</div></div><div class="dc-actions"><button type="button" class="dc-action" data-dc-edit="' + escapeAttr(code) + '">Bearbeiten</button><button type="button" class="dc-action delete" data-dc-delete="' + escapeAttr(code) + '">Löschen</button></div></div>';
+    }).join("");
+
+    list.querySelectorAll("[data-dc-edit]").forEach((btn) => btn.addEventListener("click", () => {
+      const code = btn.dataset.dcEdit || "";
+      const value = discountCodesCache[code];
+      document.getElementById("dc-code").value = code;
+      document.getElementById("dc-percent").value = Number(value && typeof value === "object" ? value.percent : value) || 0;
+      discountEditingCode = code;
+      document.getElementById("dc-add-btn").textContent = "Speichern";
+      document.getElementById("dc-cancel-btn").style.display = "";
+    }));
+
+    list.querySelectorAll("[data-dc-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+      const code = btn.dataset.dcDelete || "";
+      if (!confirm('Rabattcode „' + code + '“ wirklich löschen?')) return;
+      try {
+        const res = await api("/api/admin/discount-codes/" + encodeURIComponent(code), { method: "DELETE" });
+        if (res && res.error) throw new Error(res.error);
+        discountCodesCache = res.codes || {};
+        renderDiscountCodes();
+      } catch (e) {
+        alert("Löschen fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      }
+    }));
+  }
+
+  function escapeAttr(value) {
+    return String(value || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  async function loadDiscountCodes() {
+    const statusEl = document.getElementById("dc-status");
+    const wrap = document.getElementById("dc-fields-wrap");
+    if (!statusEl || !wrap) return;
+    statusEl.textContent = "Lädt …";
+    statusEl.style.display = "block";
+    wrap.style.display = "none";
+    try {
+      const data = await api("/api/admin/discount-codes");
+      if (data && data.error) throw new Error(data.error);
+      discountCodesCache = data || {};
+      statusEl.style.display = "none";
+      wrap.style.display = "block";
+      renderDiscountCodes();
+    } catch (e) {
+      statusEl.textContent = "Rabattcodes konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      statusEl.style.color = "#b42318";
+      wrap.style.display = "block";
+    }
+  }
+
+  const dcAddBtn = document.getElementById("dc-add-btn");
+  const dcCancelBtn = document.getElementById("dc-cancel-btn");
+  if (dcAddBtn) dcAddBtn.addEventListener("click", async () => {
+    const codeInput = document.getElementById("dc-code");
+    const percentInput = document.getElementById("dc-percent");
+    const saveMsg = document.getElementById("dc-save-msg");
+    const code = normalizeDiscountCodeClient(codeInput && codeInput.value);
+    const percent = Number(percentInput && percentInput.value);
+
+    if (!code || !/^[A-Z0-9_-]+$/.test(code)) {
+      alert("Bitte einen gültigen Rabattcode eingeben.");
+      return;
+    }
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      alert("Der Rabatt muss zwischen 0 und 100 % liegen.");
+      return;
+    }
+
+    const original = dcAddBtn.textContent;
+    dcAddBtn.disabled = true;
+    dcAddBtn.textContent = "Speichert …";
+    try {
+      const payload = {};
+      payload[code] = { percent: Math.round(percent * 100) / 100 };
+      const data = await api("/api/admin/discount-codes", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (data && data.error) throw new Error(data.error);
+      discountCodesCache = data || {};
+      codeInput.value = "";
+      percentInput.value = "";
+      discountEditingCode = "";
+      dcCancelBtn.style.display = "none";
+      dcAddBtn.textContent = "＋ Rabattcode hinzufügen";
+      renderDiscountCodes();
+      if (saveMsg) {
+        saveMsg.textContent = "✓ Gespeichert";
+        saveMsg.style.display = "inline";
+        setTimeout(() => { saveMsg.style.display = "none"; }, 2200);
+      }
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      dcAddBtn.textContent = original;
+    } finally {
+      dcAddBtn.disabled = false;
+    }
+  });
+
+  if (dcCancelBtn) dcCancelBtn.addEventListener("click", () => {
+    discountEditingCode = "";
+    const codeInput = document.getElementById("dc-code");
+    const percentInput = document.getElementById("dc-percent");
+    if (codeInput) codeInput.value = "";
+    if (percentInput) percentInput.value = "";
+    dcCancelBtn.style.display = "none";
+    if (dcAddBtn) dcAddBtn.textContent = "＋ Rabattcode hinzufügen";
+  });
 
   // Start
   if (token) {
