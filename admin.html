@@ -999,16 +999,21 @@
   }
 
   async function api(path, opts) {
-    const res = await fetch(WORKER_URL + path, Object.assign({}, opts, {
-      headers: Object.assign({ "Authorization": "Bearer " + token }, (opts && opts.headers) || {}),
-    }));
+    const options = Object.assign({ cache: "no-store" }, opts || {});
+    options.headers = Object.assign({ "Authorization": "Bearer " + token }, options.headers || {});
+    const res = await fetch(WORKER_URL + path, options);
+    let data = {};
+    try { data = await res.json(); } catch (_) { data = {}; }
     if (res.status === 401) {
       sessionStorage.removeItem(TOKEN_KEY);
       token = "";
       showLogin(true);
-      throw new Error("Nicht autorisiert");
+      throw new Error(data.error || "Nicht autorisiert");
     }
-    return res.json();
+    if (!res.ok) {
+      throw new Error(data.error || ("HTTP " + res.status));
+    }
+    return data;
   }
 
   function showLogin(withError) {
