@@ -53,6 +53,7 @@
     const namedBinParts = namedBinTypes.map((t, i) => (namedBinQty[i] > 1 ? `${namedBinQty[i]}x ${t}` : t));
     const binTypes = [...namedBinParts, ...otherPart].join(" | ") || "keine Angabe";
     const namedBinCount = namedBinQty.reduce((s, n) => s + n, 0);
+    const discountState = window.ecobinDiscountState ? window.ecobinDiscountState() : { code: "", percent: 0, baseAmount: 0 };
     return {
       bins: namedBinCount + qtyNormal + qtyGross + qtyContainer,
       binTypes,
@@ -63,9 +64,9 @@
       address: d.get("address"),
       note: d.get("note") || "",
       email: d.get("email") || "",
-      discountCode: String(d.get("discountCode") || "").trim().toUpperCase(),
-      discountPercent: Number(d.get("discountPercent")) || 0,
-      amountBeforeDiscount: Number(d.get("discountBaseAmount")) || 0,
+      discountCode: discountState.code || "",
+      discountPercent: Number(discountState.percent) || 0,
+      baseAmount: Number(discountState.baseAmount) || 0,
     };
   }
 
@@ -155,16 +156,13 @@
     window.ppOrders
       .Buttons({
         createOrder: async function () {
-          const booking = collectBooking();
           const amount = amountFromText(document.querySelector("#payment-price")?.textContent);
           const res = await fetch(WORKER_URL + "/api/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: amount, amountBeforeDiscount: booking.amountBeforeDiscount, discountCode: booking.discountCode, description: "EcoBin Mülltonnenreinigung", booking }),
+            body: JSON.stringify({ amount: amount, description: "EcoBin Mülltonnenreinigung", booking: collectBooking() }),
           });
-          const data = await res.json();
-          if (!res.ok || !data.id) throw new Error(data.error || "Bestellung konnte nicht erstellt werden.");
-          return data.id;
+          return (await res.json()).id;
         },
         onApprove: async function (data) {
           await fetch(WORKER_URL + "/api/orders/" + data.orderID + "/capture", {
@@ -194,12 +192,11 @@
     window.ppSubs
       .Buttons({
         createSubscription: async function () {
-          const booking = collectBooking();
           const amount = amountFromText(document.querySelector("#payment-price")?.textContent);
           const res = await fetch(WORKER_URL + "/api/subscriptions", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount, amountBeforeDiscount: booking.amountBeforeDiscount, discountCode: booking.discountCode, booking }),
+            body: JSON.stringify({ plan_id: PLAN_ID, amount: amount, booking: collectBooking() }),
           });
           const sub = await res.json();
           if (!sub.id) {
