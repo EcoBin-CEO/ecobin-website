@@ -1,0 +1,8 @@
+EcoBin – Rabattcode-Fix
+
+1. In Cloudflare Workers den Inhalt von worker/worker.js als Worker-Code einsetzen.
+2. Deployen/veröffentlichen.
+3. Danach die Admin-Dateien aus diesem ZIP in GitHub hochladen.
+4. Danach die Website-Dateien aus dem Website-ZIP in GitHub hochladen.
+
+Wichtig: Der Worker muss zuerst deployed sein, weil die Rabattcode-Verwaltung und die öffentliche Rabattcode-Prüfung über diese API laufen.
