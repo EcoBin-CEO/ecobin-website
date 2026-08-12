@@ -432,4 +432,5 @@ Für die Gmail-Benachrichtigung müssen die bereits vorgesehenen Secrets
 - PayPal-Einmalzahlung und Monatsabo übergeben den angewendeten Rabattcode und den Grundpreis an den Worker.
 - Worker prüft den Code beim Erstellen der Zahlung erneut und berechnet den endgültigen Zahlungsbetrag serverseitig.
 - `worker.js` ist in Website- und Admin-ZIP identisch.
+- Die öffentliche Website liest die Rabattcodes zusätzlich über `/api/config` und nutzt den bisherigen Validate-Endpunkt nur noch als Fallback. Dadurch funktioniert die Anzeige/Preisberechnung auch dann, wenn der direkte Validate-Aufruf in einer alten Worker-Version nicht verfügbar ist.
 - Geprüft: JavaScript-Syntax von Worker, Admin-Script, Website-Script und PayPal-Script mit `node --check`.
