@@ -569,7 +569,7 @@
             <div class="kd-action-grid">
               <button class="kd-action-btn" data-kd-action="cancel">
                 <b>Abo kündigen</b>
-                <span>E-Mail-Entwurf zur Kündigung öffnen · Status wird auf „Gekündigt" gesetzt</span>
+                <span>Kündigungs-E-Mail als Entwurf öffnen · Status wird auf „Gekündigt" gesetzt</span>
               </button>
               <button class="kd-action-btn" data-kd-action="reschedule">
                 <b>Termin verlegen</b>
@@ -739,6 +739,65 @@
               <div class="settings-actions">
                 <button class="settings-save-btn" id="st-save-btn">Speichern</button>
                 <span class="settings-save-msg" id="st-save-msg">✓ Gespeichert</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-tile" id="settings-kalender">
+          <div class="settings-tile-head" data-settings-toggle="settings-kalender">
+            <div class="settings-tile-icon">📅</div>
+            <div class="settings-tile-title">
+              <b>Kalender-Einstellungen</b>
+              <span>Ansicht, Wochentag, vergangene und abgelehnte Termine</span>
+            </div>
+            <div class="settings-tile-chev">▾</div>
+          </div>
+          <div class="settings-tile-body">
+            <div class="settings-tile-inner">
+              <div class="settings-grid">
+                <div class="field">
+                  <label for="cal-setting-view">Standardansicht</label>
+                  <select id="cal-setting-view">
+                    <option value="month">Monat</option>
+                    <option value="week">Woche</option>
+                  </select>
+                  <div class="hint">Diese Ansicht wird beim Öffnen des Kalenders standardmäßig verwendet.</div>
+                </div>
+                <div class="field">
+                  <label>Erster Wochentag</label>
+                  <input type="text" value="Montag" readonly>
+                  <div class="hint">Der Kalender verwendet Montag als ersten Wochentag.</div>
+                </div>
+                <div class="field">
+                  <label for="cal-setting-past">Vergangene Termine anzeigen</label>
+                  <select id="cal-setting-past">
+                    <option value="yes">Ja</option>
+                    <option value="no">Nein</option>
+                  </select>
+                  <div class="hint">Legt fest, ob Termine vor dem heutigen Tag weiterhin angezeigt werden.</div>
+                </div>
+                <div class="field">
+                  <label for="cal-setting-rejected">Abgelehnte Buchungen anzeigen</label>
+                  <select id="cal-setting-rejected">
+                    <option value="yes">Ja</option>
+                    <option value="no">Nein</option>
+                  </select>
+                  <div class="hint">Legt fest, ob abgelehnte Buchungen im Kalender sichtbar sind.</div>
+                </div>
+                <div class="field">
+                  <label for="cal-setting-reminder">Standard-Erinnerung vor Reinigung</label>
+                  <select id="cal-setting-reminder">
+                    <option value="1">1 Tag</option>
+                    <option value="2">2 Tage</option>
+                    <option value="3">3 Tage</option>
+                  </select>
+                  <div class="hint">Standardwert für zukünftige Reinigungserinnerungen.</div>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button class="settings-save-btn" id="cal-settings-save-btn">Speichern</button>
+                <span class="settings-save-msg" id="cal-settings-save-msg">✓ Gespeichert</span>
               </div>
             </div>
           </div>
@@ -1028,7 +1087,7 @@
       <button class="small-btn modal-accept" id="bd-accept-btn">Annehmen</button>
       <button class="small-btn modal-danger" id="bd-reject-btn">Ablehnen</button>
     </div>
-    <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. „Annehmen“/„Ablehnen“ öffnet einen vorausgefüllten E-Mail-Entwurf in Gmail – die Mail wird NICHT automatisch verschickt, du musst sie selbst absenden. Eine Rückerstattung erfolgt bei „Ablehnen“ ebenfalls NICHT automatisch, bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
+    <p class="bd-refund-hint" id="bd-refund-hint">Hinweis: Die Zahlung ist bei dieser Buchung bereits über PayPal erfolgt. Bei „Annehmen“/„Ablehnen“ wird die Kunden-E-Mail automatisch über dein verbundenes Gmail-Konto verschickt. Eine Rückerstattung erfolgt bei „Ablehnen“ nicht automatisch, bitte bei Bedarf manuell im PayPal-Konto erstatten.</p>
     <button class="bd-cancel-btn" id="bd-cancel-btn" style="display:none">Termin nachträglich absagen</button>
     <p class="bd-cancel-note" id="bd-cancel-note" style="display:none">Die Absage wird erst nach deiner Bestätigung ausgeführt.</p>
     <p class="bd-action-msg" id="bd-action-msg"></p>
@@ -1216,6 +1275,13 @@
     adresse: "",
     impressum: "",
     signatur: "Viele Grüße\nIhr EcoBin-Team",
+    kalender: {
+      standardansicht: "month",
+      ersterWochentag: "monday",
+      vergangeneTermine: true,
+      abgelehnteBuchungen: false,
+      erinnerungTage: 1,
+    },
   };
   function loadSettings() {
     try {
@@ -1228,6 +1294,15 @@
   }
   function saveSettings(values) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(values));
+  }
+  function getCalendarSettings() {
+    const settings = loadSettings();
+    return Object.assign({}, DEFAULT_SETTINGS.kalender, settings.kalender || {});
+  }
+  function saveCalendarSettings(values) {
+    const settings = loadSettings();
+    settings.kalender = Object.assign({}, DEFAULT_SETTINGS.kalender, values || {});
+    saveSettings(settings);
   }
   const ST_FIELDS = {
     firmenname: "st-firmenname",
@@ -1246,6 +1321,15 @@
       const el = document.getElementById(ST_FIELDS[key]);
       if (el) el.value = settings[key] || "";
     });
+    const kalender = getCalendarSettings();
+    const calViewSetting = document.getElementById("cal-setting-view");
+    const calPastSetting = document.getElementById("cal-setting-past");
+    const calRejectedSetting = document.getElementById("cal-setting-rejected");
+    const calReminderSetting = document.getElementById("cal-setting-reminder");
+    if (calViewSetting) calViewSetting.value = kalender.standardansicht;
+    if (calPastSetting) calPastSetting.value = kalender.vergangeneTermine ? "yes" : "no";
+    if (calRejectedSetting) calRejectedSetting.value = kalender.abgelehnteBuchungen ? "yes" : "no";
+    if (calReminderSetting) calReminderSetting.value = String(kalender.erinnerungTage);
     loadPreise();
     loadDiscountCodes();
     loadEmailVorlagen();
@@ -1256,6 +1340,30 @@
       if (tile) tile.classList.toggle("open");
     });
   });
+  const calSettingsSaveBtn = document.getElementById("cal-settings-save-btn");
+  if (calSettingsSaveBtn) {
+    calSettingsSaveBtn.addEventListener("click", () => {
+      const view = document.getElementById("cal-setting-view");
+      const past = document.getElementById("cal-setting-past");
+      const rejected = document.getElementById("cal-setting-rejected");
+      const reminder = document.getElementById("cal-setting-reminder");
+      saveCalendarSettings({
+        standardansicht: view ? view.value : "month",
+        ersterWochentag: "monday",
+        vergangeneTermine: past ? past.value === "yes" : true,
+        abgelehnteBuchungen: rejected ? rejected.value === "yes" : false,
+        erinnerungTage: reminder ? Number(reminder.value) : 1,
+      });
+      calView = view ? view.value : "month";
+      renderCalendar();
+      const msg = document.getElementById("cal-settings-save-msg");
+      if (msg) {
+        msg.classList.add("show");
+        clearTimeout(calSettingsSaveBtn._msgTimeout);
+        calSettingsSaveBtn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
+      }
+    });
+  }
   const stSaveBtn = document.getElementById("st-save-btn");
   if (stSaveBtn) {
     stSaveBtn.addEventListener("click", () => {
@@ -1553,7 +1661,7 @@
       "</tr></thead><tbody>" + list.map((b) => bookingRowHtml(b, todayI)).join("") + "</tbody></table>";
   }
 
-  let calView = "month";
+  let calView = getCalendarSettings().standardansicht === "week" ? "week" : "month";
   let calDate = new Date();
   calDate.setHours(0, 0, 0, 0);
 
@@ -1628,8 +1736,15 @@
     document.querySelectorAll(".cal-view-btn").forEach((b) => b.classList.toggle("active", b.dataset.calView === calView));
 
     const todayI = todayIso();
+    const calendarSettings = getCalendarSettings();
     const byDate = {};
-    bookings.filter((b) => b.date && b.status !== "rejected").forEach((b) => {
+    bookings.filter((b) => {
+      if (!b.date) return false;
+      if (b.status === "rejected" && !calendarSettings.abgelehnteBuchungen) return false;
+      if (b.status === "cancelled" && !calendarSettings.abgelehnteBuchungen) return false;
+      if (!calendarSettings.vergangeneTermine && b.date < todayI) return false;
+      return true;
+    }).forEach((b) => {
       (byDate[b.date] = byDate[b.date] || []).push(b);
     });
 
@@ -2235,14 +2350,15 @@
       // angezeigt. Der Datensatz bleibt in bookings/KV erhalten.
       render();
 
-      // Gmail ist nur ein optionaler Folge-Schritt. Wenn der Browser das
-      // Fenster blockiert, bleibt die bereits erfolgreiche Absage bestehen.
+      // Die Kundenmail wird jetzt direkt vom Worker über Google Apps Script/Gmail
+      // verschickt. Es wird kein Gmail-Compose-Fenster mehr geöffnet.
       if (res.email && res.email.to) {
-        const gmailUrl = buildGmailComposeUrl(res.email);
-        try {
-          window.open(gmailUrl, "_blank");
-        } catch (_) {
-          // Popup-Blockierung darf die erfolgreiche Absage nicht rückgängig machen.
+        if (res.email.sent) {
+          msg.className = "bd-action-msg ok";
+          msg.textContent = "Termin abgesagt – die Kunden-E-Mail wurde automatisch verschickt.";
+        } else if (res.email.error) {
+          msg.className = "bd-action-msg error";
+          msg.textContent = "Termin abgesagt, aber die E-Mail konnte nicht verschickt werden: " + res.email.error;
         }
       }
     } catch (e) {
@@ -2256,19 +2372,6 @@
     }
   });
 
-  // Baut die Gmail-Compose-URL aus An/Betreff/Text, die der Worker beim
-  // Annehmen/Ablehnen zurückliefert (siehe decideBooking im Worker).
-  function buildGmailComposeUrl(email) {
-    const params = new URLSearchParams({
-      view: "cm",
-      fs: "1",
-      to: email.to || "",
-      su: email.subject || "",
-      body: email.text || "",
-    });
-    return "https://mail.google.com/mail/?" + params.toString();
-  }
-
   async function decideBookingDetail(action) {
     const uid = currentBookingDetailUid;
     const b = findBookingByUid(uid);
@@ -2278,45 +2381,52 @@
     acceptBtn.disabled = true; rejectBtn.disabled = true;
     const msg = document.getElementById("bd-action-msg");
     msg.className = "bd-action-msg";
-    msg.textContent = "";
-
-    const gmailTab = window.open("", "_blank");
+    msg.textContent = "Wird verarbeitet …";
 
     try {
       let res;
       if (isLocalTestBooking(b)) {
         b.status=action==="accept"?"accepted":"rejected"; b.decidedAt=new Date().toISOString(); updateLocalTestBooking(b);
-        res={email:buildTestEmail(b,action)};
+        res={email:null};
         addTestAction("Testbuchung "+(action==="accept"?"angenommen":"abgelehnt")+" ("+(b.id||uid)+")");
       } else {
         const idForApi=b.id!=null?b.id:uid;
         res=await api("/api/admin/bookings/"+encodeURIComponent(idForApi)+"/"+action,{method:"POST"});
-        if(res&&res.error){if(gmailTab)gmailTab.close();msg.className="bd-action-msg error";msg.textContent=res.error;acceptBtn.disabled=false;rejectBtn.disabled=false;return;}
+        if(res&&res.error){
+          msg.className="bd-action-msg error";
+          msg.textContent=res.error;
+          acceptBtn.disabled=false; rejectBtn.disabled=false;
+          return;
+        }
         b.status=action==="accept"?"accepted":"rejected";
       }
+
       msg.className = "bd-action-msg ok";
-      if (res && res.email && res.email.to) {
-        if (gmailTab) {
-          gmailTab.location.href = buildGmailComposeUrl(res.email);
+      if (isLocalTestBooking(b)) {
+        msg.textContent = action === "accept"
+          ? "Testbuchung angenommen – keine echte E-Mail wurde verschickt."
+          : "Testbuchung abgelehnt – keine echte E-Mail wurde verschickt.";
+      } else if (res && res.email && res.email.to) {
+        if (res.email.sent) {
+          msg.textContent = action === "accept"
+            ? "Buchung angenommen – die Kunden-E-Mail wurde automatisch verschickt."
+            : "Buchung abgelehnt – die Kunden-E-Mail wurde automatisch verschickt.";
         } else {
-          // Popup wurde vom Browser blockiert -> im selben Tab öffnen als Fallback
-          window.open(buildGmailComposeUrl(res.email), "_blank");
+          msg.className = "bd-action-msg error";
+          msg.textContent = action === "accept"
+            ? "Buchung angenommen, aber die Kunden-E-Mail konnte nicht verschickt werden."
+            : "Buchung abgelehnt, aber die Kunden-E-Mail konnte nicht verschickt werden.";
         }
-        msg.textContent = action === "accept"
-          ? "Buchung angenommen – E-Mail-Entwurf wurde in Gmail geöffnet. Bitte prüfen und selbst absenden."
-          : "Buchung abgelehnt – E-Mail-Entwurf wurde in Gmail geöffnet. Bitte prüfen und selbst absenden.";
       } else {
-        if (gmailTab) gmailTab.close();
         msg.textContent = action === "accept"
-          ? "Buchung angenommen (keine E-Mail-Adresse hinterlegt, kein Entwurf erstellt)."
-          : "Buchung abgelehnt (keine E-Mail-Adresse hinterlegt, kein Entwurf erstellt).";
+          ? "Buchung angenommen (keine E-Mail-Adresse hinterlegt)."
+          : "Buchung abgelehnt (keine E-Mail-Adresse hinterlegt).";
       }
       render();
-      setTimeout(closeBookingDetail, 900);
+      setTimeout(closeBookingDetail, 1200);
     } catch (e) {
-      if (gmailTab) gmailTab.close();
       msg.className = "bd-action-msg error";
-      msg.textContent = "Fehler – bitte erneut versuchen.";
+      msg.textContent = e && e.message ? e.message : "Fehler – bitte erneut versuchen.";
       acceptBtn.disabled = false; rejectBtn.disabled = false;
     }
   }
