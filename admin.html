@@ -137,9 +137,9 @@
   .cal-daynum{align-self:flex-end;font-size:13px;font-weight:700;color:var(--navy)}
   .cal-event{background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;box-shadow:0 0 0 1px var(--line) inset;cursor:pointer;transition:box-shadow .15s,border-color .15s}
   .cal-event:hover{box-shadow:0 0 0 1px var(--navy-2) inset,0 2px 8px rgba(0,0,0,.08)}
-  .cal-event.test-event{background:#fff7ed;box-shadow:0 0 0 2px #f59e0b inset;border:1px solid #d97706}
-  .cal-event.test-event:hover{box-shadow:0 0 0 2px #d97706 inset,0 2px 8px rgba(217,119,6,.18)}
-  .cal-test-label{display:inline-block;margin-left:4px;padding:1px 4px;border-radius:4px;background:#f59e0b;color:#7c2d12;font-size:9px;font-weight:900;letter-spacing:.04em;line-height:1.2}
+  .cal-event.test-event{background:#fff5f5;box-shadow:0 0 0 2px #dc2626 inset;border:1px solid #dc2626}
+  .cal-event.test-event:hover{box-shadow:0 0 0 2px #b91c1c inset,0 2px 8px rgba(220,38,38,.18)}
+  .cal-test-label{display:inline-block;margin-left:4px;padding:1px 4px;border-radius:4px;background:#dc2626;color:#fff;font-size:9px;font-weight:900;letter-spacing:.04em;line-height:1.2}
   .cal-event-top{display:flex;align-items:center;gap:5px;margin-bottom:3px}
   .cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
   .cal-name{font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -156,6 +156,9 @@
 
   .mail-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:14px;cursor:pointer;transition:box-shadow .15s,border-color .15s}
   .mail-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);border-color:var(--navy-2)}
+  .mail-card.test-booking-card{background:#fff5f5;border:2px solid #dc2626;box-shadow:0 0 0 1px rgba(220,38,38,.08) inset}
+  .mail-card.test-booking-card:hover{border-color:#b91c1c;box-shadow:0 3px 12px rgba(220,38,38,.15)}
+  .test-booking-label{display:inline-flex;align-items:center;margin-left:8px;padding:2px 7px;border-radius:999px;background:#dc2626;color:#fff;font-size:10px;font-weight:900;letter-spacing:.04em;vertical-align:middle}
   .mail-card h4{margin:0 0 10px;font-size:14.5px}
   .mail-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
   .mail-row:last-child{border-bottom:0}
@@ -349,6 +352,62 @@
     .et-accordion-body{padding-left:12px;padding-right:12px}
   }
 </style>
+
+<style id="inbox-count-badge-fix">
+  .inbox-count-badge,
+  .unread-count,
+  .notification-count,
+  .badge-count {
+    min-width: 24px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    box-sizing: border-box;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 24px;
+    border-radius: 50%;
+    line-height: 1 !important;
+    text-align: center !important;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .inbox-count-badge.is-over-99,
+  .unread-count.is-over-99,
+  .notification-count.is-over-99,
+  .badge-count.is-over-99 {
+    width: 30px;
+    min-width: 30px;
+    font-size: 11px;
+  }
+</style>
+
+
+<style id="mobile-last-bookings-full-width">
+  @media (max-width: 640px){
+    /* Dashboard: "Letzte Buchungen" soll auf dem Handy die komplette Breite nutzen. */
+    #view-dashboard > .panel:last-child{
+      width:calc(100% + 28px);
+      max-width:none;
+      margin-left:-14px;
+      margin-right:-14px;
+      box-sizing:border-box;
+      border-left:0;
+      border-right:0;
+      border-radius:0;
+    }
+
+    #view-dashboard > .panel:last-child #recent-bookings{
+      width:100%;
+      box-sizing:border-box;
+    }
+  }
+</style>
+
 </head>
 <body>
 
@@ -1717,7 +1776,7 @@
   function calEventHtml(b, todayI) {
     const st = statusInfo(b, todayI);
     const isTest = isLocalTestBooking(b);
-    const dotColor = isTest ? "#d97706" : ({ "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)");
+    const dotColor = isTest ? "#dc2626" : ({ "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)");
     const testLabel = isTest ? '<span class="cal-test-label">' + (b.abo ? 'TEST-ABO' : 'TEST') + '</span>' : '';
     const eventClass = isTest ? 'cal-event test-event' : 'cal-event';
     return (
@@ -1880,9 +1939,12 @@
   function mailCardHtml(b, todayI) {
     const st = statusInfo(b, todayI);
     const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    const isTest = isLocalTestBooking(b);
+    const cardClass = isTest ? "mail-card test-booking-card" : "mail-card";
+    const testLabel = isTest ? '<span class="test-booking-label">TESTBUCHUNG</span>' : "";
     return (
-      '<div class="mail-card" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
-      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="' + cardClass + '" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + testLabel + "</h4>" +
       '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
       '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
       '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
@@ -2387,8 +2449,23 @@
     try {
       let res;
       if (isLocalTestBooking(b)) {
-        b.status=action==="accept"?"accepted":"rejected"; b.decidedAt=new Date().toISOString(); updateLocalTestBooking(b);
-        res={email:null};
+        // Testbuchungen liegen nur im Browser. Deshalb wird die Entscheidung
+        // nicht über die normale KV-Buchung ausgeführt, sondern der Worker
+        // bekommt die Testbuchung direkt zum E-Mail-Versand.
+        res = await api("/api/admin/test-booking-decision", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, booking: b })
+        });
+        if (res && res.error) {
+          msg.className = "bd-action-msg error";
+          msg.textContent = res.error;
+          acceptBtn.disabled = false; rejectBtn.disabled = false;
+          return;
+        }
+        b.status=action==="accept"?"accepted":"rejected";
+        b.decidedAt=new Date().toISOString();
+        updateLocalTestBooking(b);
         addTestAction("Testbuchung "+(action==="accept"?"angenommen":"abgelehnt")+" ("+(b.id||uid)+")");
       } else {
         const idForApi=b.id!=null?b.id:uid;
@@ -2404,9 +2481,20 @@
 
       msg.className = "bd-action-msg ok";
       if (isLocalTestBooking(b)) {
-        msg.textContent = action === "accept"
-          ? "✓ Buchung angenommen"
-          : "✓ Buchung abgelehnt";
+        if (res && res.email && res.email.sent) {
+          msg.textContent = action === "accept"
+            ? "✓ Buchung angenommen – Test-E-Mail automatisch gesendet"
+            : "✓ Buchung abgelehnt – Test-E-Mail automatisch gesendet";
+        } else if (res && res.email && res.email.error) {
+          msg.className = "bd-action-msg error";
+          msg.textContent = action === "accept"
+            ? "Buchung angenommen, aber die Test-E-Mail konnte nicht verschickt werden."
+            : "Buchung abgelehnt, aber die Test-E-Mail konnte nicht verschickt werden.";
+        } else {
+          msg.textContent = action === "accept"
+            ? "✓ Buchung angenommen"
+            : "✓ Buchung abgelehnt";
+        }
       } else if (res && res.email && res.email.to) {
         if (res.email.sent) {
           msg.textContent = action === "accept"
@@ -2861,5 +2949,44 @@
     showLogin(false);
   }
 })();</script>
+
+<script id="inbox-count-badge-helper">
+(function () {
+  window.ecoBinFormatInboxCount = function (value) {
+    var n = Number(value) || 0;
+    return n > 99 ? "99+" : String(Math.max(0, Math.floor(n)));
+  };
+
+  window.ecoBinFixInboxBadges = function () {
+    var selectors = [
+      ".inbox-count-badge",
+      ".unread-count",
+      ".notification-count",
+      ".badge-count"
+    ];
+    document.querySelectorAll(selectors.join(",")).forEach(function (el) {
+      var raw = (el.textContent || "").trim();
+      var match = raw.match(/^\d+$/);
+      if (match) {
+        var n = Number(raw);
+        el.textContent = window.ecoBinFormatInboxCount(n);
+        el.classList.toggle("is-over-99", n > 99);
+      }
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", window.ecoBinFixInboxBadges);
+  } else {
+    window.ecoBinFixInboxBadges();
+  }
+
+  var observer = new MutationObserver(function () {
+    window.ecoBinFixInboxBadges();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+
 </body>
 </html>
