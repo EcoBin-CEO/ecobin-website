@@ -1054,7 +1054,7 @@
         </div>
 
         <div class="et-section-label" style="margin-top:24px">Vorlagen</div>
-        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Jede Vorlage lässt sich einzeln aufklappen und bearbeiten. Platzhalter: <code>{{name}}</code> <code>{{datum}}</code> <code>{{tonnen}}</code> <code>{{extras}}</code> <code>{{art}}</code> <code>{{preis}}</code> <code>{{adresse}}</code> <code>{{email}}</code></p>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Jede Vorlage lässt sich einzeln aufklappen und bearbeiten. Platzhalter: <code>{{name}}</code> <code>{{datum}}</code> <code>{{tonnen}}</code> <code>{{extras}}</code> <code>{{art}}</code> <code>{{preis}}</code> <code>{{adresse}}</code> <code>{{email}}</code> <code>{{neues_datum}}</code> <small style="display:block;color:var(--muted);margin-top:4px">{{neues_datum}} ist nur bei der Vorlage "Terminverlegung" verfügbar (das neu gewählte Datum beim Verschieben eines Termins).</small></p>
 
         <div class="et-accordion" id="et-booking-accepted">
           <button type="button" class="et-accordion-head" data-et-toggle="et-booking-accepted-body"><span><b>Buchung angenommen</b><small>Bestätigung einer angenommenen Buchung</small></span><span class="et-accordion-chev">▾</span></button>
@@ -1105,7 +1105,7 @@
           <button type="button" class="et-accordion-head" data-et-toggle="et-appointment-rescheduled-body"><span><b>Terminverlegung</b><small>Nachricht bei verschobenem Reinigungstermin</small></span><span class="et-accordion-chev">▾</span></button>
           <div class="et-accordion-body" id="et-appointment-rescheduled-body">
             <div class="field"><label for="et-appointment-rescheduled-subject">Betreff</label><input type="text" id="et-appointment-rescheduled-subject"></div>
-            <div class="field"><label for="et-appointment-rescheduled-body-input">Nachricht</label><textarea id="et-appointment-rescheduled-body-input" rows="7"></textarea></div>
+            <div class="field"><label for="et-appointment-rescheduled-body-input">Nachricht</label><textarea id="et-appointment-rescheduled-body-input" rows="7"></textarea><small style="display:block;color:var(--muted);margin-top:4px">Nutze <code>{{datum}}</code> für den ursprünglichen und <code>{{neues_datum}}</code> für den neu gewählten Termin.</small></div>
             <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="appointment_rescheduled" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-appointment-rescheduled-save-msg">✓ Gespeichert</span></div>
           </div>
         </div>
