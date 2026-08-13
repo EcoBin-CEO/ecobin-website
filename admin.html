@@ -330,6 +330,23 @@
 
 
 #dc-list .dc-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;background:#fff}#dc-list .dc-code{font-weight:800;color:var(--navy)}#dc-list .dc-percent{font-size:12px;color:var(--muted);margin-top:3px}#dc-list .dc-actions{display:flex;gap:7px}.dc-action{border:1px solid #d5dfdf;background:#fff;border-radius:18px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer}.dc-action.delete{background:#d72c2c;color:#fff;border-color:#d72c2c}@media(max-width:650px){#dc-list .dc-item{align-items:flex-start;flex-direction:column}#dc-list .dc-actions{width:100%}#dc-list .dc-actions button{flex:1}.settings-tile-inner #dc-fields-wrap>div:first-child{grid-template-columns:1fr!important}}
+
+  /* ---------- E-Mail-Einstellungen: einzelne Vorlagen als Akkordeons ---------- */
+  .et-section-label{font-size:13px;font-weight:800;color:var(--navy);margin:0 0 10px}
+  .et-accordion{border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:9px;overflow:hidden}
+  .et-accordion-head{width:100%;border:0;background:transparent;padding:13px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer;color:var(--navy);font:inherit}
+  .et-accordion-head:hover{background:rgba(0,0,0,.018)}
+  .et-accordion-head b{display:block;font-size:13.5px}
+  .et-accordion-head small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+  .et-accordion-chev{color:var(--muted);transition:transform .18s ease;flex-shrink:0}
+  .et-accordion.open .et-accordion-chev{transform:rotate(180deg)}
+  .et-accordion-body{display:none;padding:0 15px 15px;border-top:1px solid var(--line)}
+  .et-accordion.open .et-accordion-body{display:block;padding-top:15px}
+  @media (max-width:640px){
+    #et-sender-body > div:first-child{grid-template-columns:1fr!important}
+    .et-accordion-head{padding:12px}
+    .et-accordion-body{padding-left:12px;padding-right:12px}
+  }
 </style>
 </head>
 <body>
@@ -843,52 +860,141 @@
   </div>
 </div>
 <div class="settings-tile" id="settings-email-vorlagen">
-          <div class="settings-tile-head" data-settings-toggle="settings-email-vorlagen">
-            <div class="settings-tile-icon">✉️</div>
-            <div class="settings-tile-title">
-              <b>E-Mail-Vorlagen</b>
-              <span>Texte für Buchung angenommen / abgelehnt</span>
-            </div>
-            <div class="settings-tile-chev">▾</div>
-          </div>
-          <div class="settings-tile-body">
-            <div class="settings-tile-inner">
-              <p class="et-status" id="et-status" style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Lädt …</p>
-              <div id="et-fields-wrap" style="display:none">
+  <div class="settings-tile-head" data-settings-toggle="settings-email-vorlagen">
+    <div class="settings-tile-icon">✉️</div>
+    <div class="settings-tile-title">
+      <b>E-Mail-Einstellungen</b>
+      <span>Absender und alle E-Mail-Vorlagen verwalten</span>
+    </div>
+    <div class="settings-tile-chev">▾</div>
+  </div>
+  <div class="settings-tile-body">
+    <div class="settings-tile-inner">
+      <p class="et-status" id="et-status" style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Lädt …</p>
+      <div id="et-fields-wrap" style="display:none">
 
-                <p style="font-size:12.5px;color:var(--muted);margin:0 0 16px">Platzhalter für vorhandene Kundendaten: <code>{{name}}</code> <code>{{datum}}</code> <code>{{tonnen}}</code> <code>{{extras}}</code> <code>{{art}}</code> <code>{{preis}}</code> <code>{{adresse}}</code></p>
-
-                <div class="field"><label>Buchung angenommen</label></div>
-                <div class="field">
-                  <label for="et-accepted-subject">Betreff</label>
-                  <input type="text" id="et-accepted-subject">
-                </div>
-                <div class="field">
-                  <label for="et-accepted-body">Nachricht</label>
-                  <textarea id="et-accepted-body" rows="6"></textarea>
-                </div>
-                <div class="settings-actions">
-                  <button class="settings-save-btn" id="et-accepted-save-btn">Speichern</button>
-                  <span class="settings-save-msg" id="et-accepted-save-msg">✓ Gespeichert</span>
-                </div>
-
-                <div class="field" style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line)"><label>Buchung abgelehnt</label></div>
-                <div class="field">
-                  <label for="et-rejected-subject">Betreff</label>
-                  <input type="text" id="et-rejected-subject">
-                </div>
-                <div class="field">
-                  <label for="et-rejected-body">Nachricht</label>
-                  <textarea id="et-rejected-body" rows="6"></textarea>
-                </div>
-                <div class="settings-actions">
-                  <button class="settings-save-btn" id="et-rejected-save-btn">Speichern</button>
-                  <span class="settings-save-msg" id="et-rejected-save-msg">✓ Gespeichert</span>
-                </div>
-
+        <div class="et-section-label">E-Mail-Absender</div>
+        <div class="et-accordion open" id="et-sender">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-sender-body">
+            <span><b>E-Mail-Absender</b><small>Absendername und Absenderadresse</small></span><span class="et-accordion-chev">▾</span>
+          </button>
+          <div class="et-accordion-body" id="et-sender-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div class="field">
+                <label for="et-sender-name">Absendername</label>
+                <input type="text" id="et-sender-name" maxlength="120" placeholder="z. B. EcoBin">
+              </div>
+              <div class="field">
+                <label for="et-sender-address">Absenderadresse</label>
+                <input type="email" id="et-sender-address" maxlength="254" placeholder="z. B. info@ecobin.de">
               </div>
             </div>
+            <div class="hint">Diese Angaben werden zentral gespeichert. Bei einem manuellen Gmail-Entwurf bleibt die tatsächlich verwendete Absenderadresse von deinem Gmail-Konto abhängig.</div>
+            <div class="settings-actions">
+              <button class="settings-save-btn" id="et-sender-save-btn" type="button">Speichern</button>
+              <span class="settings-save-msg" id="et-sender-save-msg">✓ Gespeichert</span>
+            </div>
           </div>
+        </div>
+
+        <div class="et-section-label" style="margin-top:24px">Vorlagen</div>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Jede Vorlage lässt sich einzeln aufklappen und bearbeiten. Platzhalter: <code>{{name}}</code> <code>{{datum}}</code> <code>{{tonnen}}</code> <code>{{extras}}</code> <code>{{art}}</code> <code>{{preis}}</code> <code>{{adresse}}</code> <code>{{email}}</code></p>
+
+        <div class="et-accordion" id="et-booking-accepted">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-booking-accepted-body"><span><b>Buchung angenommen</b><small>Bestätigung einer angenommenen Buchung</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-booking-accepted-body">
+            <div class="field"><label for="et-accepted-subject">Betreff</label><input type="text" id="et-accepted-subject"></div>
+            <div class="field"><label for="et-accepted-body">Nachricht</label><textarea id="et-accepted-body" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="booking_accepted" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-accepted-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-booking-rejected">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-booking-rejected-body"><span><b>Buchung abgelehnt</b><small>Nachricht bei Ablehnung einer Buchung</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-booking-rejected-body">
+            <div class="field"><label for="et-rejected-subject">Betreff</label><input type="text" id="et-rejected-subject"></div>
+            <div class="field"><label for="et-rejected-body">Nachricht</label><textarea id="et-rejected-body" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="booking_rejected" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-rejected-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-subscription-confirmed">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-subscription-confirmed-body"><span><b>Monatsabo bestätigt</b><small>Bestätigung eines neuen Monatsabos</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-subscription-confirmed-body">
+            <div class="field"><label for="et-subscription-confirmed-subject">Betreff</label><input type="text" id="et-subscription-confirmed-subject"></div>
+            <div class="field"><label for="et-subscription-confirmed-body-input">Nachricht</label><textarea id="et-subscription-confirmed-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="subscription_confirmed" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-subscription-confirmed-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-subscription-cancelled">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-subscription-cancelled-body"><span><b>Monatsabo gekündigt</b><small>Bestätigung einer Abo-Kündigung</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-subscription-cancelled-body">
+            <div class="field"><label for="et-subscription-cancelled-subject">Betreff</label><input type="text" id="et-subscription-cancelled-subject"></div>
+            <div class="field"><label for="et-subscription-cancelled-body-input">Nachricht</label><textarea id="et-subscription-cancelled-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="subscription_cancelled" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-subscription-cancelled-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-subscription-paused">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-subscription-paused-body"><span><b>Monatsabo pausiert</b><small>Nachricht bei pausiertem Abo</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-subscription-paused-body">
+            <div class="field"><label for="et-subscription-paused-subject">Betreff</label><input type="text" id="et-subscription-paused-subject"></div>
+            <div class="field"><label for="et-subscription-paused-body-input">Nachricht</label><textarea id="et-subscription-paused-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="subscription_paused" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-subscription-paused-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-appointment-rescheduled">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-appointment-rescheduled-body"><span><b>Terminverlegung</b><small>Nachricht bei verschobenem Reinigungstermin</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-appointment-rescheduled-body">
+            <div class="field"><label for="et-appointment-rescheduled-subject">Betreff</label><input type="text" id="et-appointment-rescheduled-subject"></div>
+            <div class="field"><label for="et-appointment-rescheduled-body-input">Nachricht</label><textarea id="et-appointment-rescheduled-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="appointment_rescheduled" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-appointment-rescheduled-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-payment-successful">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-payment-successful-body"><span><b>Zahlung erfolgreich</b><small>Bestätigung einer erfolgreichen Zahlung</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-payment-successful-body">
+            <div class="field"><label for="et-payment-successful-subject">Betreff</label><input type="text" id="et-payment-successful-subject"></div>
+            <div class="field"><label for="et-payment-successful-body-input">Nachricht</label><textarea id="et-payment-successful-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="payment_successful" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-payment-successful-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-payment-failed">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-payment-failed-body"><span><b>Zahlung fehlgeschlagen</b><small>Nachricht bei fehlgeschlagener Zahlung</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-payment-failed-body">
+            <div class="field"><label for="et-payment-failed-subject">Betreff</label><input type="text" id="et-payment-failed-subject"></div>
+            <div class="field"><label for="et-payment-failed-body-input">Nachricht</label><textarea id="et-payment-failed-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="payment_failed" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-payment-failed-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-subscription-cancel-notice">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-subscription-cancel-notice-body"><span><b>Abo gekündigt</b><small>Nachricht zur Kündigung eines Abos</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-subscription-cancel-notice-body">
+            <div class="field"><label for="et-subscription-cancel-notice-subject">Betreff</label><input type="text" id="et-subscription-cancel-notice-subject"></div>
+            <div class="field"><label for="et-subscription-cancel-notice-body-input">Nachricht</label><textarea id="et-subscription-cancel-notice-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="subscription_cancel_notice" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-subscription-cancel-notice-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+        <div class="et-accordion" id="et-general">
+          <button type="button" class="et-accordion-head" data-et-toggle="et-general-body"><span><b>Allgemeine Nachricht</b><small>Freie E-Mail-Vorlage für sonstige Nachrichten</small></span><span class="et-accordion-chev">▾</span></button>
+          <div class="et-accordion-body" id="et-general-body">
+            <div class="field"><label for="et-general-subject">Betreff</label><input type="text" id="et-general-subject"></div>
+            <div class="field"><label for="et-general-body-input">Nachricht</label><textarea id="et-general-body-input" rows="7"></textarea></div>
+            <div class="settings-actions"><button class="settings-save-btn et-template-save" data-et-type="general" type="button">Speichern</button><span class="settings-save-msg et-template-save-msg" id="et-general-save-msg">✓ Gespeichert</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</div>
         </div>
       </main>
 
@@ -1265,11 +1371,31 @@
     });
   }
 
-  // ---------- E-Mail-Vorlagen ----------
+  // ---------- E-Mail-Einstellungen ----------
   const ET_FIELDS = {
     booking_accepted: { subject: "et-accepted-subject", body: "et-accepted-body" },
     booking_rejected: { subject: "et-rejected-subject", body: "et-rejected-body" },
+    subscription_confirmed: { subject: "et-subscription-confirmed-subject", body: "et-subscription-confirmed-body-input" },
+    subscription_cancelled: { subject: "et-subscription-cancelled-subject", body: "et-subscription-cancelled-body-input" },
+    subscription_paused: { subject: "et-subscription-paused-subject", body: "et-subscription-paused-body-input" },
+    appointment_rescheduled: { subject: "et-appointment-rescheduled-subject", body: "et-appointment-rescheduled-body-input" },
+    payment_successful: { subject: "et-payment-successful-subject", body: "et-payment-successful-body-input" },
+    payment_failed: { subject: "et-payment-failed-subject", body: "et-payment-failed-body-input" },
+    subscription_cancel_notice: { subject: "et-subscription-cancel-notice-subject", body: "et-subscription-cancel-notice-body-input" },
+    general: { subject: "et-general-subject", body: "et-general-body-input" },
   };
+
+  function wireEmailAccordions() {
+    document.querySelectorAll("[data-et-toggle]").forEach((head) => {
+      head.addEventListener("click", () => {
+        const body = document.getElementById(head.dataset.etToggle);
+        if (!body) return;
+        const accordion = head.closest(".et-accordion");
+        if (accordion) accordion.classList.toggle("open");
+      });
+    });
+  }
+
   async function loadEmailVorlagen() {
     const statusEl = document.getElementById("et-status");
     const wrap = document.getElementById("et-fields-wrap");
@@ -1278,8 +1404,13 @@
     statusEl.style.display = "block";
     wrap.style.display = "none";
     try {
-      const templates = await api("/api/admin/email-templates");
+      const [templates, sender] = await Promise.all([
+        api("/api/admin/email-templates"),
+        api("/api/admin/email-settings"),
+      ]);
       if (templates && templates.error) throw new Error(templates.error);
+      if (sender && sender.error) throw new Error(sender.error);
+
       Object.keys(ET_FIELDS).forEach((type) => {
         const tpl = (templates && templates[type]) || {};
         const subjEl = document.getElementById(ET_FIELDS[type].subject);
@@ -1287,12 +1418,20 @@
         if (subjEl) subjEl.value = tpl.subject || "";
         if (bodyEl) bodyEl.value = tpl.body || "";
       });
+
+      const senderName = document.getElementById("et-sender-name");
+      const senderAddress = document.getElementById("et-sender-address");
+      if (senderName) senderName.value = (sender && sender.name) || "";
+      if (senderAddress) senderAddress.value = (sender && sender.address) || "";
+
       statusEl.style.display = "none";
       wrap.style.display = "block";
     } catch (e) {
-      statusEl.textContent = "E-Mail-Vorlagen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      statusEl.textContent = "E-Mail-Einstellungen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      wrap.style.display = "none";
     }
   }
+
   function collectEmailTemplates() {
     const values = {};
     Object.keys(ET_FIELDS).forEach((type) => {
@@ -1305,47 +1444,78 @@
     });
     return values;
   }
-  function wireEmailTemplateSave(btnId, msgId) {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener("click", async () => {
-      // Beide Vorlagen werden immer zusammen gesendet, da die API
-      // beide Vorlagen auf einmal speichert (sonst würde die jeweils
-      // andere Vorlage mit leeren Werten überschrieben).
-      const values = collectEmailTemplates();
-      btn.disabled = true;
-      const originalLabel = btn.textContent;
-      btn.textContent = "Speichert …";
-      try {
-        const updated = await api("/api/admin/email-templates", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        });
-        if (updated && updated.error) throw new Error(updated.error);
-        Object.keys(ET_FIELDS).forEach((type) => {
-          const tpl = (updated && updated[type]) || {};
-          const subjEl = document.getElementById(ET_FIELDS[type].subject);
-          const bodyEl = document.getElementById(ET_FIELDS[type].body);
-          if (subjEl) subjEl.value = tpl.subject || "";
-          if (bodyEl) bodyEl.value = tpl.body || "";
-        });
-        const msg = document.getElementById(msgId);
-        if (msg) {
-          msg.classList.add("show");
-          clearTimeout(btn._msgTimeout);
-          btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
-        }
-      } catch (e) {
-        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
+
+  async function saveEmailTemplates(btn) {
+    const values = collectEmailTemplates();
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = "Speichert …";
+    try {
+      const updated = await api("/api/admin/email-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (updated && updated.error) throw new Error(updated.error);
+      Object.keys(ET_FIELDS).forEach((type) => {
+        const tpl = (updated && updated[type]) || {};
+        const subjEl = document.getElementById(ET_FIELDS[type].subject);
+        const bodyEl = document.getElementById(ET_FIELDS[type].body);
+        if (subjEl) subjEl.value = tpl.subject || "";
+        if (bodyEl) bodyEl.value = tpl.body || "";
+      });
+      const msg = btn.parentElement.querySelector(".et-template-save-msg");
+      if (msg) {
+        msg.classList.add("show");
+        clearTimeout(btn._msgTimeout);
+        btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
       }
-    });
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
   }
-  wireEmailTemplateSave("et-accepted-save-btn", "et-accepted-save-msg");
-  wireEmailTemplateSave("et-rejected-save-btn", "et-rejected-save-msg");
+
+  async function saveEmailSender() {
+    const btn = document.getElementById("et-sender-save-btn");
+    if (!btn) return;
+    const name = (document.getElementById("et-sender-name")?.value || "").trim();
+    const address = (document.getElementById("et-sender-address")?.value || "").trim();
+    if (address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      alert("Bitte eine gültige Absenderadresse eingeben.");
+      return;
+    }
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = "Speichert …";
+    try {
+      const saved = await api("/api/admin/email-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, address }),
+      });
+      if (saved && saved.error) throw new Error(saved.error);
+      const msg = document.getElementById("et-sender-save-msg");
+      if (msg) {
+        msg.classList.add("show");
+        clearTimeout(btn._msgTimeout);
+        btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
+      }
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  }
+
+  wireEmailAccordions();
+  document.querySelectorAll(".et-template-save").forEach((btn) => {
+    btn.addEventListener("click", () => saveEmailTemplates(btn));
+  });
+  document.getElementById("et-sender-save-btn")?.addEventListener("click", saveEmailSender);
 
   function statusInfo(b, todayI) {
     if (b.status === "cancelled") return { label: "Abgesagt", cls: "pill-rej" };
