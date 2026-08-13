@@ -6,6 +6,48 @@
   let bookings = [];
 
   const TEST_ACTIONS_KEY = "ecobin_verwaltung_test_actions";
+
+  // Testaktions-Protokoll: Die Funktion wurde zuvor aufgerufen, aber nicht
+  // definiert. Dadurch brach Annehmen/Ablehnen nach dem Worker-Aufruf mit
+  // "addTestAction is not defined" ab, sodass auch die Erfolgsanimation nicht
+  // mehr erreicht wurde.
+  function addTestAction(text) {
+    try {
+      const now = new Date();
+      const time = now.toLocaleDateString("de-DE") + ", " +
+        now.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      const list = JSON.parse(localStorage.getItem(TEST_ACTIONS_KEY) || "[]");
+      const items = Array.isArray(list) ? list : [];
+      items.unshift({ text: String(text || ""), time });
+      localStorage.setItem(TEST_ACTIONS_KEY, JSON.stringify(items.slice(0, 20)));
+
+      const log = document.getElementById("test-log");
+      if (!log) return;
+      log.innerHTML = '<div class="test-log-title">Letzte Testaktionen</div>' +
+        items.slice(0, 5).map(item =>
+          '<div class="test-log-item">' + escapeHtml(item.text) +
+          '<br><small>' + escapeHtml(item.time) + '</small></div>'
+        ).join("");
+    } catch (_) {
+      // Das Testprotokoll darf niemals den eigentlichen Buchungsvorgang blockieren.
+    }
+  }
+
+  function renderTestActionsLog() {
+    try {
+      const log = document.getElementById("test-log");
+      if (!log) return;
+      const list = JSON.parse(localStorage.getItem(TEST_ACTIONS_KEY) || "[]");
+      const items = Array.isArray(list) ? list : [];
+      log.innerHTML = '<div class="test-log-title">Letzte Testaktionen</div>' +
+        (items.length ? items.slice(0, 5).map(item =>
+          '<div class="test-log-item">' + escapeHtml(item.text) +
+          '<br><small>' + escapeHtml(item.time) + '</small></div>'
+        ).join("") :
+          '<div class="test-log-empty" style="font-size:11.5px;color:var(--muted)">Noch keine Testaktionen.</div>');
+    } catch (_) {}
+  }
+  renderTestActionsLog();
   const loginScreen = document.getElementById("login-screen");
   const app = document.getElementById("app");
   const loginBtn = document.getElementById("login-btn");
