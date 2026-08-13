@@ -189,7 +189,8 @@
   #bd-actions button{flex:1;padding:11px;justify-content:center;text-align:center}
   .bd-refund-hint{font-size:11.5px;color:var(--danger);background:var(--danger-bg);padding:9px 11px;border-radius:8px;margin-top:14px;line-height:1.5}
   .bd-action-msg{font-size:12.5px;margin-top:12px;padding:8px 11px;border-radius:8px;display:none}
-  .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
+  .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark);animation:bdConfirmPop .28s ease-out}
+  @keyframes bdConfirmPop{0%{opacity:0;transform:scale(.92) translateY(3px)}70%{opacity:1;transform:scale(1.02) translateY(0)}100%{opacity:1;transform:scale(1)}}
   .bd-action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
   .bd-cancel-btn{width:100%;margin-top:18px;padding:12px 16px;border:1px solid var(--danger);background:var(--danger);color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
   .bd-cancel-btn:hover{background:#a81f1f}
@@ -2404,13 +2405,13 @@
       msg.className = "bd-action-msg ok";
       if (isLocalTestBooking(b)) {
         msg.textContent = action === "accept"
-          ? "Testbuchung angenommen – keine echte E-Mail wurde verschickt."
-          : "Testbuchung abgelehnt – keine echte E-Mail wurde verschickt.";
+          ? "✓ Buchung angenommen"
+          : "✓ Buchung abgelehnt";
       } else if (res && res.email && res.email.to) {
         if (res.email.sent) {
           msg.textContent = action === "accept"
-            ? "Buchung angenommen – die Kunden-E-Mail wurde automatisch verschickt."
-            : "Buchung abgelehnt – die Kunden-E-Mail wurde automatisch verschickt.";
+            ? "✓ Buchung angenommen – E-Mail automatisch gesendet"
+            : "✓ Buchung abgelehnt – E-Mail automatisch gesendet";
         } else {
           msg.className = "bd-action-msg error";
           msg.textContent = action === "accept"
@@ -2419,11 +2420,15 @@
         }
       } else {
         msg.textContent = action === "accept"
-          ? "Buchung angenommen (keine E-Mail-Adresse hinterlegt)."
-          : "Buchung abgelehnt (keine E-Mail-Adresse hinterlegt).";
+          ? "✓ Buchung angenommen"
+          : "✓ Buchung abgelehnt";
       }
+
       render();
-      setTimeout(closeBookingDetail, 1200);
+
+      // Kurze sichtbare Bestätigung mit kleinem Pop-Effekt, danach zurück
+      // zum normalen Buchungs-Postfach.
+      setTimeout(closeBookingDetail, 1500);
     } catch (e) {
       msg.className = "bd-action-msg error";
       msg.textContent = e && e.message ? e.message : "Fehler – bitte erneut versuchen.";
