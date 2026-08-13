@@ -1,3 +1,4 @@
+
 (function () {
   const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
   const TOKEN_KEY = "ecobin_verwaltung_token";
@@ -321,121 +322,31 @@
     });
   }
 
-  // ---------- Rabattcodes ----------
-let discountCodesCache = {};
-let discountEditingCode = "";
-
-function normalizeDiscountCodeClient(value) {
-  return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
-}
-
-function renderDiscountCodes() {
-  const list = document.getElementById("dc-list");
-  if (!list) return;
-  const entries = Object.entries(discountCodesCache || {}).sort((a,b) => a[0].localeCompare(b[0]));
-  if (!entries.length) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Noch keine Rabattcodes angelegt.</div>';
-    return;
-  }
-  list.innerHTML = entries.map(([code, value]) => {
-    const percent = Number(value && typeof value === "object" ? value.percent : value) || 0;
-    return `<div class="dc-item"><div><div class="dc-code">${escapeHtml(code)}</div><div class="dc-percent">${percent}% Rabatt</div></div><div class="dc-actions"><button type="button" class="dc-action" data-dc-edit="${escapeAttr(code)}">Bearbeiten</button><button type="button" class="dc-action delete" data-dc-delete="${escapeAttr(code)}">Löschen</button></div></div>`;
-  }).join("");
-  list.querySelectorAll("[data-dc-edit]").forEach(btn => btn.addEventListener("click", () => {
-    const code = btn.dataset.dcEdit || "";
-    const value = discountCodesCache[code];
-    document.getElementById("dc-code").value = code;
-    document.getElementById("dc-percent").value = Number(value && typeof value === "object" ? value.percent : value) || 0;
-    discountEditingCode = code;
-    const add = document.getElementById("dc-add-btn");
-    const cancel = document.getElementById("dc-cancel-btn");
-    if (add) add.textContent = "Speichern";
-    if (cancel) cancel.style.display = "";
-  }));
-  list.querySelectorAll("[data-dc-delete]").forEach(btn => btn.addEventListener("click", async () => {
-    const code = btn.dataset.dcDelete || "";
-    if (!confirm(`Rabattcode „${code}“ wirklich löschen?`)) return;
-    try {
-      const res = await api("/api/admin/discount-codes/" + encodeURIComponent(code), { method: "DELETE" });
-      if (res && res.error) throw new Error(res.error);
-      discountCodesCache = res.codes || {};
-      renderDiscountCodes();
-    } catch (e) {
-      alert("Löschen fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
-    }
-  }));
-}
-
-function escapeAttr(value) {
-  return String(value || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
-
-async function loadDiscountCodes() {
-  const statusEl = document.getElementById("dc-status");
-  const wrap = document.getElementById("dc-fields-wrap");
-  if (!statusEl || !wrap) return;
-  statusEl.textContent = "Lädt …";
-  statusEl.style.display = "block";
-  wrap.style.display = "none";
-  try {
-    const data = await api("/api/admin/discount-codes");
-    if (data && data.error) throw new Error(data.error);
-    discountCodesCache = data || {};
-    statusEl.style.display = "none";
-    wrap.style.display = "block";
-    renderDiscountCodes();
-  } catch (e) {
-    statusEl.textContent = "Rabattcodes konnten nicht geladen werden. " + (e && e.message ? e.message : "");
-  }
-}
-
-async function saveDiscountCodes() {
-  const codeInput = document.getElementById("dc-code");
-  const percentInput = document.getElementById("dc-percent");
-  const code = normalizeDiscountCodeClient(codeInput?.value);
-  const percent = Number(percentInput?.value);
-  if (!code) return alert("Bitte einen Rabattcode eingeben.");
-  if (!/^[A-Z0-9_-]+$/.test(code)) return alert("Der Code darf nur Buchstaben, Zahlen, Bindestriche und Unterstriche enthalten.");
-  if (!isFinite(percent) || percent < 0 || percent > 100) return alert("Der Rabatt muss zwischen 0 und 100 % liegen.");
-  if (discountEditingCode && discountEditingCode !== code) delete discountCodesCache[discountEditingCode];
-  discountCodesCache[code] = { percent: Math.round(percent * 100) / 100 };
-  const btn = document.getElementById("dc-add-btn");
-  if (btn) { btn.disabled = true; btn.textContent = "Speichert …"; }
-  try {
-    const updated = await api("/api/admin/discount-codes", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(discountCodesCache),
-    });
-    if (updated && updated.error) throw new Error(updated.error);
-    discountCodesCache = updated || {};
-    document.getElementById("dc-code").value = "";
-    document.getElementById("dc-percent").value = "";
-    discountEditingCode = "";
-    document.getElementById("dc-cancel-btn").style.display = "none";
-    renderDiscountCodes();
-    const msg = document.getElementById("dc-save-msg");
-    if (msg) { msg.classList.add("show"); clearTimeout(msg._t); msg._t = setTimeout(() => msg.classList.remove("show"), 2500); }
-  } catch (e) {
-    alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = discountEditingCode ? "Speichern" : "＋ Rabattcode hinzufügen"; }
-  }
-}
-
-document.getElementById("dc-add-btn")?.addEventListener("click", saveDiscountCodes);
-document.getElementById("dc-cancel-btn")?.addEventListener("click", () => {
-  discountEditingCode = "";
-  document.getElementById("dc-code").value = "";
-  document.getElementById("dc-percent").value = "";
-  document.getElementById("dc-cancel-btn").style.display = "none";
-  document.getElementById("dc-add-btn").textContent = "＋ Rabattcode hinzufügen";
-});
-// ---------- E-Mail-Vorlagen ----------
+  // ---------- E-Mail-Einstellungen ----------
   const ET_FIELDS = {
-    booking_accepted: { subject: "et-accepted-subject", body: "et-accepted-body" },
-    booking_rejected: { subject: "et-rejected-subject", body: "et-rejected-body" },
+    booking_accepted: { subject: "et-accepted-subject", body: "et-accepted-body-input" },
+    booking_rejected: { subject: "et-rejected-subject", body: "et-rejected-body-input" },
+    subscription_confirmed: { subject: "et-subscription-confirmed-subject", body: "et-subscription-confirmed-body-input" },
+    subscription_cancelled: { subject: "et-subscription-cancelled-subject", body: "et-subscription-cancelled-body-input" },
+    subscription_paused: { subject: "et-subscription-paused-subject", body: "et-subscription-paused-body-input" },
+    appointment_rescheduled: { subject: "et-appointment-rescheduled-subject", body: "et-appointment-rescheduled-body-input" },
+    payment_successful: { subject: "et-payment-successful-subject", body: "et-payment-successful-body-input" },
+    payment_failed: { subject: "et-payment-failed-subject", body: "et-payment-failed-body-input" },
+    subscription_cancel_notice: { subject: "et-subscription-cancel-notice-subject", body: "et-subscription-cancel-notice-body-input" },
+    general: { subject: "et-general-subject", body: "et-general-body-input" },
   };
+
+  function wireEmailAccordions() {
+    document.querySelectorAll("[data-et-toggle]").forEach((head) => {
+      head.addEventListener("click", () => {
+        const body = document.getElementById(head.dataset.etToggle);
+        if (!body) return;
+        const accordion = head.closest(".et-accordion");
+        if (accordion) accordion.classList.toggle("open");
+      });
+    });
+  }
+
   async function loadEmailVorlagen() {
     const statusEl = document.getElementById("et-status");
     const wrap = document.getElementById("et-fields-wrap");
@@ -444,8 +355,13 @@ document.getElementById("dc-cancel-btn")?.addEventListener("click", () => {
     statusEl.style.display = "block";
     wrap.style.display = "none";
     try {
-      const templates = await api("/api/admin/email-templates");
+      const [templates, sender] = await Promise.all([
+        api("/api/admin/email-templates"),
+        api("/api/admin/email-settings"),
+      ]);
       if (templates && templates.error) throw new Error(templates.error);
+      if (sender && sender.error) throw new Error(sender.error);
+
       Object.keys(ET_FIELDS).forEach((type) => {
         const tpl = (templates && templates[type]) || {};
         const subjEl = document.getElementById(ET_FIELDS[type].subject);
@@ -453,12 +369,20 @@ document.getElementById("dc-cancel-btn")?.addEventListener("click", () => {
         if (subjEl) subjEl.value = tpl.subject || "";
         if (bodyEl) bodyEl.value = tpl.body || "";
       });
+
+      const senderName = document.getElementById("et-sender-name");
+      const senderAddress = document.getElementById("et-sender-address");
+      if (senderName) senderName.value = (sender && sender.name) || "";
+      if (senderAddress) senderAddress.value = (sender && sender.address) || "";
+
       statusEl.style.display = "none";
       wrap.style.display = "block";
     } catch (e) {
-      statusEl.textContent = "E-Mail-Vorlagen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      statusEl.textContent = "E-Mail-Einstellungen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      wrap.style.display = "none";
     }
   }
+
   function collectEmailTemplates() {
     const values = {};
     Object.keys(ET_FIELDS).forEach((type) => {
@@ -471,47 +395,78 @@ document.getElementById("dc-cancel-btn")?.addEventListener("click", () => {
     });
     return values;
   }
-  function wireEmailTemplateSave(btnId, msgId) {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    btn.addEventListener("click", async () => {
-      // Beide Vorlagen werden immer zusammen gesendet, da die API
-      // beide Vorlagen auf einmal speichert (sonst würde die jeweils
-      // andere Vorlage mit leeren Werten überschrieben).
-      const values = collectEmailTemplates();
-      btn.disabled = true;
-      const originalLabel = btn.textContent;
-      btn.textContent = "Speichert …";
-      try {
-        const updated = await api("/api/admin/email-templates", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        });
-        if (updated && updated.error) throw new Error(updated.error);
-        Object.keys(ET_FIELDS).forEach((type) => {
-          const tpl = (updated && updated[type]) || {};
-          const subjEl = document.getElementById(ET_FIELDS[type].subject);
-          const bodyEl = document.getElementById(ET_FIELDS[type].body);
-          if (subjEl) subjEl.value = tpl.subject || "";
-          if (bodyEl) bodyEl.value = tpl.body || "";
-        });
-        const msg = document.getElementById(msgId);
-        if (msg) {
-          msg.classList.add("show");
-          clearTimeout(btn._msgTimeout);
-          btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
-        }
-      } catch (e) {
-        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
+
+  async function saveEmailTemplates(btn) {
+    const values = collectEmailTemplates();
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = "Speichert …";
+    try {
+      const updated = await api("/api/admin/email-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      if (updated && updated.error) throw new Error(updated.error);
+      Object.keys(ET_FIELDS).forEach((type) => {
+        const tpl = (updated && updated[type]) || {};
+        const subjEl = document.getElementById(ET_FIELDS[type].subject);
+        const bodyEl = document.getElementById(ET_FIELDS[type].body);
+        if (subjEl) subjEl.value = tpl.subject || "";
+        if (bodyEl) bodyEl.value = tpl.body || "";
+      });
+      const msg = btn.parentElement.querySelector(".et-template-save-msg");
+      if (msg) {
+        msg.classList.add("show");
+        clearTimeout(btn._msgTimeout);
+        btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
       }
-    });
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
   }
-  wireEmailTemplateSave("et-accepted-save-btn", "et-accepted-save-msg");
-  wireEmailTemplateSave("et-rejected-save-btn", "et-rejected-save-msg");
+
+  async function saveEmailSender() {
+    const btn = document.getElementById("et-sender-save-btn");
+    if (!btn) return;
+    const name = (document.getElementById("et-sender-name")?.value || "").trim();
+    const address = (document.getElementById("et-sender-address")?.value || "").trim();
+    if (address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+      alert("Bitte eine gültige Absenderadresse eingeben.");
+      return;
+    }
+    btn.disabled = true;
+    const originalLabel = btn.textContent;
+    btn.textContent = "Speichert …";
+    try {
+      const saved = await api("/api/admin/email-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, address }),
+      });
+      if (saved && saved.error) throw new Error(saved.error);
+      const msg = document.getElementById("et-sender-save-msg");
+      if (msg) {
+        msg.classList.add("show");
+        clearTimeout(btn._msgTimeout);
+        btn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
+      }
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  }
+
+  wireEmailAccordions();
+  document.querySelectorAll(".et-template-save").forEach((btn) => {
+    btn.addEventListener("click", () => saveEmailTemplates(btn));
+  });
+  document.getElementById("et-sender-save-btn")?.addEventListener("click", saveEmailSender);
 
   function statusInfo(b, todayI) {
     if (b.status === "cancelled") return { label: "Abgesagt", cls: "pill-rej" };
@@ -1591,6 +1546,132 @@ document.getElementById("dc-cancel-btn")?.addEventListener("click", () => {
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
   document.querySelectorAll(".sb-item").forEach((btn) => btn.addEventListener("click", closeSidebar));
 
+
+  // ---------- Rabattcodes ----------
+  let discountCodesCache = {};
+  let discountEditingCode = "";
+
+  function normalizeDiscountCodeClient(value) {
+    return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
+  }
+
+  function renderDiscountCodes() {
+    const list = document.getElementById("dc-list");
+    if (!list) return;
+    const entries = Object.entries(discountCodesCache || {}).sort((a, b) => a[0].localeCompare(b[0]));
+    if (!entries.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Noch keine Rabattcodes angelegt.</div>';
+      return;
+    }
+    list.innerHTML = entries.map(([code, value]) => {
+      const percent = Number(value && typeof value === "object" ? value.percent : value) || 0;
+      return '<div class="dc-item"><div><div class="dc-code">' + escapeHtml(code) + '</div><div class="dc-percent">' + percent + '% Rabatt</div></div><div class="dc-actions"><button type="button" class="dc-action" data-dc-edit="' + escapeAttr(code) + '">Bearbeiten</button><button type="button" class="dc-action delete" data-dc-delete="' + escapeAttr(code) + '">Löschen</button></div></div>';
+    }).join("");
+
+    list.querySelectorAll("[data-dc-edit]").forEach((btn) => btn.addEventListener("click", () => {
+      const code = btn.dataset.dcEdit || "";
+      const value = discountCodesCache[code];
+      document.getElementById("dc-code").value = code;
+      document.getElementById("dc-percent").value = Number(value && typeof value === "object" ? value.percent : value) || 0;
+      discountEditingCode = code;
+      document.getElementById("dc-add-btn").textContent = "Speichern";
+      document.getElementById("dc-cancel-btn").style.display = "";
+    }));
+
+    list.querySelectorAll("[data-dc-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+      const code = btn.dataset.dcDelete || "";
+      if (!confirm('Rabattcode „' + code + '“ wirklich löschen?')) return;
+      try {
+        const res = await api("/api/admin/discount-codes/" + encodeURIComponent(code), { method: "DELETE" });
+        if (res && res.error) throw new Error(res.error);
+        discountCodesCache = res.codes || {};
+        renderDiscountCodes();
+      } catch (e) {
+        alert("Löschen fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      }
+    }));
+  }
+
+  function escapeAttr(value) {
+    return String(value || "").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  async function loadDiscountCodes() {
+    const statusEl = document.getElementById("dc-status");
+    const wrap = document.getElementById("dc-fields-wrap");
+    if (!statusEl || !wrap) return;
+    statusEl.textContent = "Lädt …";
+    statusEl.style.display = "block";
+    wrap.style.display = "none";
+    try {
+      const data = await api("/api/admin/discount-codes");
+      if (data && data.error) throw new Error(data.error);
+      discountCodesCache = data || {};
+      statusEl.style.display = "none";
+      wrap.style.display = "block";
+      renderDiscountCodes();
+    } catch (e) {
+      statusEl.textContent = "Rabattcodes konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+      statusEl.style.color = "#b42318";
+      wrap.style.display = "block";
+    }
+  }
+
+  const dcAddBtn = document.getElementById("dc-add-btn");
+  const dcCancelBtn = document.getElementById("dc-cancel-btn");
+  if (dcAddBtn) dcAddBtn.addEventListener("click", async () => {
+    const codeInput = document.getElementById("dc-code");
+    const percentInput = document.getElementById("dc-percent");
+    const saveMsg = document.getElementById("dc-save-msg");
+    const code = normalizeDiscountCodeClient(codeInput && codeInput.value);
+    const percent = Number(percentInput && percentInput.value);
+
+    if (!code || !/^[A-Z0-9_-]+$/.test(code)) {
+      alert("Bitte einen gültigen Rabattcode eingeben.");
+      return;
+    }
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      alert("Der Rabatt muss zwischen 0 und 100 % liegen.");
+      return;
+    }
+
+    const original = dcAddBtn.textContent;
+    dcAddBtn.disabled = true;
+    dcAddBtn.textContent = "Speichert …";
+    try {
+      const payload = {};
+      payload[code] = { percent: Math.round(percent * 100) / 100 };
+      const data = await api("/api/admin/discount-codes", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (data && data.error) throw new Error(data.error);
+      discountCodesCache = data || {};
+      codeInput.value = "";
+      percentInput.value = "";
+      discountEditingCode = "";
+      dcCancelBtn.style.display = "none";
+      dcAddBtn.textContent = "＋ Rabattcode hinzufügen";
+      renderDiscountCodes();
+      if (saveMsg) {
+        saveMsg.textContent = "✓ Gespeichert";
+        saveMsg.style.display = "inline";
+        setTimeout(() => { saveMsg.style.display = "none"; }, 2200);
+      }
+    } catch (e) {
+      alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      dcAddBtn.textContent = original;
+    } finally {
+      dcAddBtn.disabled = false;
+    }
+  });
+
+  if (dcCancelBtn) dcCancelBtn.addEventListener("click", () => {
+    discountEditingCode = "";
+    const codeInput = document.getElementById("dc-code");
+    const percentInput = document.getElementById("dc-percent");
+    if (codeInput) codeInput.value = "";
+    if (percentInput) percentInput.value = "";
+    dcCancelBtn.style.display = "none";
+    if (dcAddBtn) dcAddBtn.textContent = "＋ Rabattcode hinzufügen";
+  });
 
   // Start
   if (token) {
