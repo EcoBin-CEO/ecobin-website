@@ -657,26 +657,35 @@
             <div class="kd-action-grid">
               <button class="kd-action-btn" data-kd-action="cancel">
                 <b>Abo kündigen</b>
-                <span>Kündigungs-E-Mail als Entwurf öffnen · Status wird auf „Gekündigt" gesetzt</span>
+                <span>Storniert die Kalender-Serie ab heute · Status wird auf „Storniert“ gesetzt · Kunden-E-Mail wird automatisch verschickt</span>
               </button>
               <button class="kd-action-btn" data-kd-action="reschedule">
-                <b>Termin verlegen</b>
-                <span>E-Mail-Entwurf zur Terminverlegung öffnen · Status bleibt „Aktiv"</span>
+                <b>Nächsten Termin verlegen</b>
+                <span>Nur der nächste Monatstermin wird im Kalender verschoben · Status bleibt „Aktiv“ · Kunden-E-Mail wird automatisch verschickt</span>
               </button>
               <button class="kd-action-btn" data-kd-action="pause">
                 <b>Abo pausieren</b>
-                <span>E-Mail-Entwurf zur Pausierung öffnen · Status wird auf „Pausiert" gesetzt</span>
+                <span>Nur intern markiert, PayPal-Abbuchung läuft weiter · Status wird auf „Pausiert“ gesetzt · Kunden-E-Mail wird automatisch verschickt</span>
+              </button>
+              <button class="kd-action-btn" data-kd-action="resume">
+                <b>Abo fortsetzen</b>
+                <span>Hebt die Pause wieder auf · Status wird auf „Aktiv“ gesetzt · Kunden-E-Mail wird automatisch verschickt</span>
               </button>
               <button class="kd-action-btn" data-kd-action="custom">
                 <b>Eigene E-Mail schreiben</b>
                 <span>Freien E-Mail-Entwurf an den Kunden öffnen</span>
               </button>
             </div>
+            <div id="kd-reschedule-panel" class="kd-custom-mail" style="display:none;margin-top:14px">
+              <div class="field"><label>Neues Datum für den nächsten Termin</label><input type="date" id="kd-reschedule-date"></div>
+              <button class="small-btn" id="kd-reschedule-send">Termin verschieben</button>
+            </div>
             <div id="kd-custom-mail" class="kd-custom-mail" style="display:none;margin-top:14px">
               <div class="field"><label>Betreff</label><input type="text" id="kd-custom-subject"></div>
               <div class="field"><label>Nachricht</label><textarea id="kd-custom-body" rows="6"></textarea></div>
               <button class="small-btn" id="kd-custom-send">E-Mail-Entwurf öffnen</button>
             </div>
+            <p id="kd-action-msg" class="bd-action-msg" style="display:none;margin-top:12px"></p>
           </div>
         </div>
       </main>
@@ -1937,6 +1946,7 @@
     if (b.status === "pending") return { label: "Neu", cls: "pill-new" };
     if (b.status === "paused") return { label: "Pausiert", cls: "pill-pause" };
     if (b.status === "accepted") return { label: "Aktiv", cls: "pill-ok" };
+    if (b.status === "cancelled") return { label: "Storniert", cls: "pill-rej" };
     return { label: b.status || "–", cls: "pill-done" };
   }
 
@@ -2303,6 +2313,22 @@
     document.getElementById("kd-edit-panel").style.display = "none";
     document.getElementById("kd-edit-toggle").textContent = "✎ Bearbeiten";
     document.getElementById("kd-custom-mail").style.display = "none";
+    document.getElementById("kd-reschedule-panel").style.display = "none";
+    const msg = document.getElementById("kd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.style.display = "none";
+
+    // Aktionen passend zum aktuellen Status ein-/ausblenden: Kündigen geht
+    // bei "Aktiv" und "Pausiert", Verlegen/Pausieren nur bei "Aktiv",
+    // Fortsetzen nur bei "Pausiert".
+    const showBtn = (action, show) => {
+      const el = document.querySelector('.kd-action-btn[data-kd-action="' + action + '"]');
+      if (el) el.style.display = show ? "flex" : "none";
+    };
+    showBtn("cancel", b.status === "accepted" || b.status === "paused");
+    showBtn("reschedule", b.status === "accepted");
+    showBtn("pause", b.status === "accepted");
+    showBtn("resume", b.status === "paused");
   }
 
   function showKundeDetail(uid) {
@@ -2385,12 +2411,15 @@
     const cancelBtn = document.getElementById("bd-cancel-btn");
     const cancelNote = document.getElementById("bd-cancel-note");
     const isPending = b.status === "pending";
-    const isAccepted = b.status === "accepted";
+    // "paused" ist nur bei Monatsabos möglich; auch ein pausiertes Abo kann
+    // nachträglich storniert werden (die Kalender-Serie lief in der Pause ja
+    // unverändert weiter und muss dann beendet werden).
+    const canCancel = b.status === "accepted" || b.status === "paused";
     resetCancelConfirmState();
     actions.style.display = isPending ? "flex" : "none";
     refundHint.style.display = isPending ? "block" : "none";
-    cancelBtn.style.display = isAccepted ? "block" : "none";
-    cancelNote.style.display = isAccepted ? "block" : "none";
+    cancelBtn.style.display = canCancel ? "block" : "none";
+    cancelNote.style.display = canCancel ? "block" : "none";
     document.getElementById("bd-accept-btn").disabled = false;
     document.getElementById("bd-reject-btn").disabled = false;
 
@@ -2469,7 +2498,7 @@
   document.getElementById("bd-cancel-btn").addEventListener("click", () => {
     const uid = currentBookingDetailUid;
     const b = findBookingByUid(uid);
-    if (!uid || !b || b.status !== "accepted" || cancelInProgress) return;
+    if (!uid || !b || (b.status !== "accepted" && b.status !== "paused") || cancelInProgress) return;
 
     document.getElementById("bd-cancel-confirm-text").textContent =
       "Möchtest du den Termin am " + formatDateDe(b.date) + " für " + (b.name || "diesen Kunden") + " wirklich nachträglich absagen?";
@@ -2496,7 +2525,7 @@
     const uid = currentBookingDetailUid;
     const b = findBookingByUid(uid);
 
-    if (!uid || !b || b.status !== "accepted" || cancelInProgress) {
+    if (!uid || !b || (b.status !== "accepted" && b.status !== "paused") || cancelInProgress) {
       resetCancelConfirmState();
       return;
     }
@@ -2633,16 +2662,67 @@
   document.getElementById("bd-accept-btn").addEventListener("click", () => decideBookingDetail("accept"));
   document.getElementById("bd-reject-btn").addEventListener("click", () => decideBookingDetail("reject"));
 
+  // Führt eine der Abo-Verwaltungsaktionen (kündigen/pausieren/fortsetzen)
+  // über die echte Worker-API aus. Der Worker kümmert sich serverseitig um
+  // die Google-Kalender-Serie und verschickt die Kunden-E-Mail automatisch
+  // über Gmail (kein Compose-Fenster mehr, analog zu Annehmen/Ablehnen).
+  async function runKundeAction(endpoint, successStatus) {
+    const uid = currentKundeUid;
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    const msg = document.getElementById("kd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.style.display = "";
+    msg.textContent = "Wird verarbeitet …";
+    document.querySelectorAll(".kd-action-btn").forEach((el) => { el.disabled = true; });
+
+    try {
+      const idForApi = b.id != null ? b.id : uid;
+      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + endpoint, { method: "POST" });
+      if (!res || res.error) throw new Error((res && res.error) || "Aktion fehlgeschlagen.");
+
+      b.status = successStatus;
+      if (res.booking) Object.assign(b, res.booking);
+      render();
+      renderKundeDetail(b);
+
+      const m = document.getElementById("kd-action-msg");
+      if (res.email && res.email.to) {
+        if (res.email.sent) {
+          m.className = "bd-action-msg ok";
+          m.textContent = "Erledigt – die Kunden-E-Mail wurde automatisch verschickt.";
+        } else if (res.email.error) {
+          m.className = "bd-action-msg error";
+          m.textContent = "Erledigt, aber die E-Mail konnte nicht verschickt werden: " + res.email.error;
+        }
+      } else {
+        m.className = "bd-action-msg ok";
+        m.textContent = "Erledigt.";
+      }
+      m.style.display = "";
+      if (res.calendar && res.calendar.ok === false) {
+        m.className = "bd-action-msg error";
+        m.textContent += " Achtung: Kalender-Aktualisierung fehlgeschlagen (" + res.calendar.error + ").";
+      }
+    } catch (e) {
+      document.querySelectorAll(".kd-action-btn").forEach((el) => { el.disabled = false; });
+      const m = document.getElementById("kd-action-msg");
+      m.className = "bd-action-msg error";
+      m.style.display = "";
+      m.textContent = e && e.message ? e.message : "Aktion fehlgeschlagen.";
+    }
+  }
+
   document.querySelectorAll(".kd-action-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const b = findBookingByUid(currentKundeUid);
       if (!b) return;
-      const to = fieldVal(b, ["email"], "");
       const name = b.name || "Kunde";
       const action = btn.dataset.kdAction;
 
       if (action === "custom") {
         document.getElementById("kd-custom-mail").style.display = "block";
+        document.getElementById("kd-reschedule-panel").style.display = "none";
         document.getElementById("kd-custom-subject").value = "";
         document.getElementById("kd-custom-body").value = "Hallo " + name + ",\n\n\n\nViele Grüße\nIhr EcoBin-Team";
         return;
@@ -2650,19 +2730,70 @@
       document.getElementById("kd-custom-mail").style.display = "none";
 
       if (action === "cancel") {
-        openMailDraft(to, "Kündigung Ihres Monatsabos bei EcoBin",
-          "Hallo " + name + ",\n\nhiermit bestätigen wir die Kündigung Ihres Monatsabos zur Mülltonnenreinigung.\n\nViele Grüße\nIhr EcoBin-Team");
-        setBookingStatus(currentKundeUid, "rejected");
+        openConfirmModal(
+          "Möchtest du das Monatsabo von " + name + " wirklich kündigen? Die Kalender-Serie wird ab heute beendet.",
+          () => runKundeAction("/cancel", "cancelled")
+        );
       } else if (action === "reschedule") {
-        openMailDraft(to, "Terminverlegung – Ihre Mülltonnenreinigung",
-          "Hallo " + name + ",\n\nwir möchten Ihren Reinigungstermin verlegen. Bitte teilen Sie uns Ihren Wunschtermin mit, oder wir schlagen Ihnen gerne einen neuen Termin vor.\n\nViele Grüße\nIhr EcoBin-Team");
-        setBookingStatus(currentKundeUid, "accepted");
+        document.getElementById("kd-reschedule-panel").style.display = "block";
+        document.getElementById("kd-reschedule-date").value = "";
       } else if (action === "pause") {
-        openMailDraft(to, "Pausierung Ihres Monatsabos bei EcoBin",
-          "Hallo " + name + ",\n\nwir haben Ihr Monatsabo wie gewünscht pausiert. Sobald Sie es wieder fortsetzen möchten, melden Sie sich gerne bei uns.\n\nViele Grüße\nIhr EcoBin-Team");
-        setBookingStatus(currentKundeUid, "paused");
+        openConfirmModal(
+          "Möchtest du das Monatsabo von " + name + " wirklich pausieren? PayPal bucht in der Pause weiterhin ab.",
+          () => runKundeAction("/pause", "paused")
+        );
+      } else if (action === "resume") {
+        runKundeAction("/resume", "accepted");
       }
     });
+  });
+
+  document.getElementById("kd-reschedule-send").addEventListener("click", async () => {
+    const date = document.getElementById("kd-reschedule-date").value;
+    if (!date) return;
+    const uid = currentKundeUid;
+    const b = findBookingByUid(uid);
+    if (!b) return;
+    const msg = document.getElementById("kd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.style.display = "";
+    msg.textContent = "Wird verschoben …";
+    document.getElementById("kd-reschedule-send").disabled = true;
+
+    try {
+      const idForApi = b.id != null ? b.id : uid;
+      const res = await api("/api/admin/bookings/" + encodeURIComponent(idForApi) + "/reschedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
+      if (!res || res.error) throw new Error((res && res.error) || "Verschieben fehlgeschlagen.");
+
+      if (res.booking) Object.assign(b, res.booking);
+      document.getElementById("kd-reschedule-panel").style.display = "none";
+      document.getElementById("kd-reschedule-send").disabled = false;
+      render();
+      renderKundeDetail(b);
+
+      const m = document.getElementById("kd-action-msg");
+      if (res.email && res.email.to && res.email.sent) {
+        m.className = "bd-action-msg ok";
+        m.textContent = "Termin verschoben – die Kunden-E-Mail wurde automatisch verschickt.";
+      } else if (res.email && res.email.error) {
+        m.className = "bd-action-msg error";
+        m.textContent = "Termin verschoben, aber die E-Mail konnte nicht verschickt werden: " + res.email.error;
+      } else {
+        m.className = "bd-action-msg ok";
+        m.textContent = "Termin verschoben.";
+      }
+      m.style.display = "";
+    } catch (e) {
+      document.getElementById("kd-reschedule-send").disabled = false;
+      const m = document.getElementById("kd-action-msg");
+      m.className = "bd-action-msg error";
+      m.style.display = "";
+      m.textContent = e && e.message ? e.message : "Verschieben fehlgeschlagen.";
+    }
   });
 
   document.getElementById("kd-custom-send").addEventListener("click", () => {
