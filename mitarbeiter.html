@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>EcoBin – Mitarbeiter</title>
+<style>
+  :root{
+    --green:#1f7a55; --green-dark:#18553a; --lime:#c8e6a0;
+    --navy:#092d4b; --navy-2:#0d3a5f; --muted:#75868e; --bg:#f6f5ef; --line:#e3e2d8;
+    --danger:#c62828; --danger-bg:#fdecea; --ok-bg:#eaf7ef;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--navy)}
+  a{color:inherit}
+  button{font-family:inherit}
+
+  /* ---------- Login (Design identisch zur Admin-Verwaltung) ---------- */
+  #login-screen{min-height:100vh;display:flex}
+  .login-left{flex:1;background:var(--navy);color:#fff;position:relative;overflow:hidden;padding:40px;display:flex;flex-direction:column;min-height:100vh}
+  .login-left .wave{position:absolute;left:0;right:0;bottom:0;height:160px;background:var(--green-dark);border-radius:50% 50% 0 0/100px 100px 0 0;transform:scale(1.6);opacity:.9}
+  .back-link{font-size:13px;color:#cfe0e8;text-decoration:none;opacity:.8}
+  .back-link:hover{opacity:1}
+  .login-logo{display:flex;align-items:center;gap:10px;margin-top:60px}
+  .login-logo .mark{width:34px;height:34px;border-radius:9px;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:18px}
+  .login-logo b{font-size:19px}
+  .login-hero{margin-top:auto;position:relative;z-index:2;max-width:420px}
+  .login-hero h1{font-size:32px;line-height:1.2;margin:0 0 14px}
+  .login-hero h1 span{color:var(--lime)}
+  .login-hero p{color:#cfe0e8;font-size:14px;margin:0 0 30px}
+
+  .login-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;background:var(--bg)}
+  .login-form{max-width:340px;width:100%}
+  .eyebrow{color:var(--green);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .login-form h2{font-size:26px;margin:6px 0 6px;color:var(--navy)}
+  .login-form>p{color:var(--muted);font-size:13px;margin:0 0 26px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px}
+  .field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff}
+  .field input:focus{outline:2px solid var(--green);outline-offset:1px}
+  #login-btn{width:100%;padding:13px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;cursor:pointer;font-size:14px;margin-top:6px}
+  #login-btn:disabled{opacity:.6;cursor:default}
+  .login-error{color:var(--danger);background:var(--danger-bg);border-radius:8px;padding:9px 12px;font-size:12.5px;margin:0 0 14px;display:none}
+
+  /* ---------- App-Grundgerüst (nur Dashboard, noch ohne Inhalt) ---------- */
+  #app{display:none;min-height:100vh}
+  .shell{display:flex;min-height:100vh}
+  .sidebar{width:230px;flex-shrink:0;background:var(--navy);color:#fff;display:flex;flex-direction:column;padding:20px 14px}
+  .sb-logo{display:flex;align-items:center;gap:10px;padding:6px 8px 22px}
+  .sb-logo .mark{width:30px;height:30px;border-radius:8px;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .sb-logo .name{font-weight:800;font-size:15px;line-height:1.15}
+  .sb-logo .sub{font-size:9.5px;letter-spacing:.08em;color:#9fb3c2;text-transform:uppercase}
+  nav.sb-nav{display:flex;flex-direction:column;gap:3px}
+  .sb-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:#cfe0e8;text-decoration:none;font-size:13.5px;font-weight:600;cursor:pointer;border:0;background:none;text-align:left;width:100%}
+  .sb-item .ic{width:18px;text-align:center}
+  .sb-item.active{background:var(--green);color:#fff}
+  .sb-footer{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #ffffff1f}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--lime);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0}
+  .sb-footer .who{flex:1;min-width:0}
+  .sb-footer .who b{display:block;font-size:12.5px}
+  .sb-footer .who span{display:block;font-size:10.5px;color:#9fb3c2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sb-footer button{background:none;border:0;color:#9fb3c2;cursor:pointer;font-size:15px;padding:4px}
+  .sb-footer button:hover{color:#fff}
+
+  .main-wrap{flex:1;min-width:0}
+  header.topbar{background:#fff;border-bottom:1px solid var(--line);padding:16px 28px;display:flex;align-items:center;justify-content:space-between}
+  header.topbar h1{font-size:19px;margin:0}
+  main.content{padding:26px 28px 50px;max-width:1180px}
+
+  @media(max-width:760px){
+    #login-screen{flex-direction:column}
+    .login-left{min-height:220px;padding:24px}
+    .login-hero h1{font-size:26px}
+    .login-right{padding:24px}
+    .sidebar{width:72px}
+    .sb-logo .name,.sb-logo .sub,.sb-item span{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-screen">
+  <div class="login-left">
+    <a class="back-link" href="/">&larr; zurück</a>
+    <div class="login-logo">
+      <div class="mark">🌱</div>
+      <b>EcoBin</b>
+    </div>
+    <div class="login-hero">
+      <h1>Mitarbeiter <span>Bereich</span></h1>
+      <p>Interner Zugang für das EcoBin-Team.</p>
+    </div>
+    <div class="wave"></div>
+  </div>
+  <div class="login-right">
+    <div class="login-form">
+      <div class="eyebrow">Anmeldung</div>
+      <h2>Willkommen zurück</h2>
+      <p>Melde dich mit deinem Mitarbeiterkonto an.</p>
+      <p class="login-error" id="login-error">Anmeldung fehlgeschlagen. Bitte Benutzername/Token prüfen.</p>
+      <div class="field">
+        <label for="login-user">Benutzername</label>
+        <input id="login-user" type="text" autocomplete="username" placeholder="z. B. max.mustermann">
+      </div>
+      <div class="field">
+        <label for="login-pass">Passwort</label>
+        <input id="login-pass" type="password" autocomplete="current-password" placeholder="Mitarbeiter-Token">
+      </div>
+      <button id="login-btn">Anmelden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP (nur Dashboard, noch leer) ================= -->
+<div id="app">
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sb-logo">
+        <div class="mark">🌱</div>
+        <div>
+          <div class="name">EcoBin</div>
+          <div class="sub">Mitarbeiter</div>
+        </div>
+      </div>
+      <nav class="sb-nav">
+        <button class="sb-item active" type="button"><span class="ic">📊</span><span>Dashboard</span></button>
+      </nav>
+      <div class="sb-footer">
+        <div class="avatar" id="user-avatar">MA</div>
+        <div class="who">
+          <b id="user-name">Mitarbeiter</b>
+          <span id="user-email"></span>
+        </div>
+        <button id="logout-btn" title="Abmelden">⏻</button>
+      </div>
+    </aside>
+    <div class="main-wrap">
+      <header class="topbar">
+        <h1>Dashboard</h1>
+      </header>
+      <main class="content">
+        <!-- Absichtlich noch ohne Inhalt: kein Kalender, kein Postfach,
+             keine Abos, keine Kunden, keine Einstellungen. Kommt später. -->
+      </main>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
+  const TOKEN_KEY = "ecobin_mitarbeiter_token";
+  const USER_KEY = "ecobin_mitarbeiter_user";
+  let token = sessionStorage.getItem(TOKEN_KEY) || "";
+
+  const loginScreen = document.getElementById("login-screen");
+  const app = document.getElementById("app");
+  const loginBtn = document.getElementById("login-btn");
+  const userInput = document.getElementById("login-user");
+  const passInput = document.getElementById("login-pass");
+  const loginError = document.getElementById("login-error");
+
+  function initialsOf(str) {
+    str = (str || "").trim();
+    if (!str) return "MA";
+    const namePart = str.includes("@") ? str.split("@")[0] : str;
+    const words = namePart.replace(/[._-]+/g, " ").trim().split(/\s+/);
+    if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+    return namePart.slice(0, 2).toUpperCase();
+  }
+
+  function showLogin(withError) {
+    app.style.display = "none";
+    loginScreen.style.display = "flex";
+    loginError.style.display = withError ? "block" : "none";
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Anmelden";
+  }
+
+  function showApp() {
+    loginScreen.style.display = "none";
+    app.style.display = "block";
+    const displayName = sessionStorage.getItem(USER_KEY) || "Mitarbeiter";
+    document.getElementById("user-avatar").textContent = initialsOf(displayName);
+    document.getElementById("user-name").textContent = displayName;
+  }
+
+  loginBtn.addEventListener("click", async () => {
+    const user = userInput.value.trim();
+    const pass = passInput.value;
+    if (!pass) { loginError.textContent = "Bitte Passwort/Token eingeben."; loginError.style.display = "block"; return; }
+    token = pass;
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Wird geprüft …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/login", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ user: user || "Mitarbeiter" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        sessionStorage.setItem(TOKEN_KEY, token);
+        sessionStorage.setItem(USER_KEY, user || "Mitarbeiter");
+        showApp();
+      } else {
+        throw new Error("unauthorized");
+      }
+    } catch (e) {
+      loginError.textContent = "Anmeldung fehlgeschlagen. Bitte Benutzername/Token prüfen.";
+      loginError.style.display = "block";
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Anmelden";
+    }
+  });
+  [userInput, passInput].forEach((el) => el.addEventListener("keydown", (e) => { if (e.key === "Enter") loginBtn.click(); }));
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    token = "";
+    showLogin(false);
+  });
+
+  // Automatisch anmelden, wenn noch ein gültiges Token in dieser Sitzung liegt.
+  if (token) { showApp(); } else { showLogin(false); }
+})();
+</script>
+</body>
+</html>
