@@ -1150,6 +1150,102 @@
     </div>
   </div>
 </div>
+<div class="settings-tile" id="settings-paypal">
+  <div class="settings-tile-head" data-settings-toggle="settings-paypal">
+    <div class="settings-tile-icon">💳</div>
+    <div class="settings-tile-title">
+      <b>PayPal &amp; Zahlungen</b>
+      <span>Verbindungsstatus, Zahlungsverlauf und Fehlerbenachrichtigung</span>
+    </div>
+    <div class="settings-tile-chev">▾</div>
+  </div>
+  <div class="settings-tile-body">
+    <div class="settings-tile-inner">
+      <p class="pp-status" id="pp-status" style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Lädt …</p>
+      <div id="pp-fields-wrap" style="display:none">
+        <div class="settings-grid">
+          <div class="field">
+            <label>PayPal-Verbindung</label>
+            <input type="text" id="pp-connection" readonly>
+          </div>
+          <div class="field">
+            <label>PayPal-Modus</label>
+            <input type="text" id="pp-mode" readonly>
+          </div>
+          <div class="field">
+            <label>PayPal-Konto</label>
+            <input type="text" id="pp-account" readonly>
+          </div>
+          <div class="field">
+            <label>Letzte erfolgreiche Zahlung</label>
+            <input type="text" id="pp-last-success" readonly>
+          </div>
+          <div class="field span2">
+            <label>Letzter Zahlungsfehler</label>
+            <input type="text" id="pp-last-error" readonly>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="settings-save-btn" id="pp-test-btn" type="button">Verbindung testen</button>
+          <span class="settings-save-msg" id="pp-test-msg">✓ Verbindung erfolgreich</span>
+        </div>
+        <div class="field" style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:420px">
+          <label for="pp-auto-report" style="margin:0">Zahlungsfehler automatisch melden</label>
+          <label class="switch">
+            <input type="checkbox" id="pp-auto-report">
+            <span class="switch-track"></span>
+          </label>
+        </div>
+        <div class="hint">Bei „Ein“ wird bei jedem Zahlungsfehler automatisch eine Benachrichtigung an die hinterlegte Admin-E-Mail verschickt.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="settings-tile" id="settings-sicherheit">
+  <div class="settings-tile-head" data-settings-toggle="settings-sicherheit">
+    <div class="settings-tile-icon">🔐</div>
+    <div class="settings-tile-title">
+      <b>Sicherheit</b>
+      <span>Automatische Abmeldung, Sitzungen und Anmeldeverlauf</span>
+    </div>
+    <div class="settings-tile-chev">▾</div>
+  </div>
+  <div class="settings-tile-body">
+    <div class="settings-tile-inner">
+      <p class="sec-status" id="sec-status" style="font-size:12.5px;color:var(--muted);margin:0 0 14px">Lädt …</p>
+      <div id="sec-fields-wrap" style="display:none">
+        <p id="sec-summary" style="font-size:13px;font-weight:600;margin:0 0 16px"></p>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="sec-auto-logout">Automatisch abmelden nach</label>
+            <select id="sec-auto-logout">
+              <option value="15">15 Minuten</option>
+              <option value="30">30 Minuten</option>
+              <option value="60">1 Stunde</option>
+              <option value="0">Nie</option>
+            </select>
+            <div class="hint">Meldet dich bei Inaktivität automatisch aus der Verwaltung ab.</div>
+          </div>
+          <div class="field">
+            <label>Letzte Anmeldung</label>
+            <input type="text" id="sec-last-login" readonly>
+          </div>
+        </div>
+
+        <div class="et-section-label" style="margin-top:22px">Aktive Sitzungen</div>
+        <p style="font-size:12.5px;color:var(--muted);margin:4px 0 12px">Geräte/Browser, die aktuell mit dem Admin-Token angemeldet sind.</p>
+        <div id="sec-sessions-list" style="display:grid;gap:8px"></div>
+
+        <div class="settings-actions" style="margin-top:18px">
+          <button class="settings-save-btn" id="sec-logout-all-btn" type="button">Von allen Geräten abmelden</button>
+          <span class="settings-save-msg" id="sec-save-msg">✓ Gespeichert</span>
+        </div>
+        <div class="hint">Beendet alle protokollierten Sitzungen (auch diese hier) und meldet dich sofort ab. Das Admin-Token selbst bleibt gültig – wer es kennt, kann sich erneut anmelden.</div>
+      </div>
+    </div>
+  </div>
+</div>
 </div>
         </div>
       </main>
@@ -1214,7 +1310,9 @@
   const WORKER_URL = "https://ecobin.mikaback777.workers.dev";
   const TOKEN_KEY = "ecobin_verwaltung_token";
   const USER_KEY = "ecobin_verwaltung_user";
+  const SESSION_ID_KEY = "ecobin_verwaltung_session_id";
   let token = sessionStorage.getItem(TOKEN_KEY) || "";
+  let sessionId = sessionStorage.getItem(SESSION_ID_KEY) || "";
   let bookings = [];
 
   const TEST_ACTIONS_KEY = "ecobin_verwaltung_test_actions";
@@ -1356,7 +1454,22 @@
       if (Array.isArray(test)) {
         sessionStorage.setItem(TOKEN_KEY, token);
         sessionStorage.setItem(USER_KEY, user || "Admin");
+        // Sitzung protokollieren (rein informativ für "Sicherheit" -> aktive
+        // Sitzungen/letzte Anmeldung). Darf die Anmeldung nie blockieren.
+        try {
+          const session = await api("/api/admin/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user: user || "Admin" }),
+          });
+          if (session && session.sessionId) {
+            sessionId = session.sessionId;
+            sessionStorage.setItem(SESSION_ID_KEY, sessionId);
+          }
+        } catch (_) {}
         showApp();
+        startAutoLogoutWatch();
+        startHeartbeat();
       } else {
         throw new Error("unexpected");
       }
@@ -1372,7 +1485,11 @@
   document.getElementById("logout-btn").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(SESSION_ID_KEY);
     token = "";
+    sessionId = "";
+    stopAutoLogoutWatch();
+    stopHeartbeat();
     showLogin(false);
   });
 
@@ -1478,6 +1595,8 @@
     loadPreise();
     loadDiscountCodes();
     loadEmailVorlagen();
+    loadPaypalStatus();
+    loadSecurity();
   }
   document.querySelectorAll("[data-settings-toggle]").forEach((head) => {
     head.addEventListener("click", () => {
@@ -3053,6 +3172,257 @@
   document.querySelectorAll(".sb-item").forEach((btn) => btn.addEventListener("click", closeSidebar));
 
 
+  // ---------- PayPal & Zahlungen ----------
+  async function loadPaypalStatus() {
+    const statusEl = document.getElementById("pp-status");
+    const wrap = document.getElementById("pp-fields-wrap");
+    if (!statusEl || !wrap) return;
+    statusEl.textContent = "Lädt …";
+    statusEl.style.display = "block";
+    wrap.style.display = "none";
+    try {
+      const data = await api("/api/admin/paypal-status");
+      if (data && data.error) throw new Error(data.error);
+      const connEl = document.getElementById("pp-connection");
+      if (connEl) connEl.value = data.configured ? "🟢 Verbunden" : "🔴 Fehler – nicht eingerichtet";
+      const modeEl = document.getElementById("pp-mode");
+      if (modeEl) modeEl.value = data.mode === "live" ? "Live" : "Test (Sandbox)";
+      const accEl = document.getElementById("pp-account");
+      if (accEl) accEl.value = data.account || "-";
+      const lastSuccessEl = document.getElementById("pp-last-success");
+      if (lastSuccessEl) {
+        const s = data.lastSuccess;
+        lastSuccessEl.value = s ? (s.type || "Zahlung") + " · " + (s.amount != null ? formatEuro(s.amount) + " · " : "") + formatDateTimeDe(s.at) : "Noch keine erfolgreiche Zahlung";
+      }
+      const lastErrorEl = document.getElementById("pp-last-error");
+      if (lastErrorEl) {
+        const e = data.lastError;
+        lastErrorEl.value = e ? (e.type || "Zahlung") + " · " + (e.error || e.status || "Fehler") + " · " + formatDateTimeDe(e.at) : "Kein Zahlungsfehler bekannt";
+      }
+      const autoReportEl = document.getElementById("pp-auto-report");
+      if (autoReportEl) autoReportEl.checked = data.autoReportPaymentErrors !== false;
+      statusEl.style.display = "none";
+      wrap.style.display = "block";
+    } catch (e) {
+      statusEl.textContent = "PayPal-Status konnte nicht geladen werden. " + (e && e.message ? e.message : "");
+    }
+  }
+  const ppTestBtn = document.getElementById("pp-test-btn");
+  if (ppTestBtn) {
+    ppTestBtn.addEventListener("click", async () => {
+      ppTestBtn.disabled = true;
+      const originalLabel = ppTestBtn.textContent;
+      ppTestBtn.textContent = "Testet …";
+      const msg = document.getElementById("pp-test-msg");
+      try {
+        const result = await api("/api/admin/paypal-test", { method: "POST" });
+        if (result && result.ok) {
+          if (msg) {
+            msg.textContent = "✓ Verbindung erfolgreich (" + (result.mode === "live" ? "Live" : "Test") + ")";
+            msg.classList.add("show");
+            clearTimeout(ppTestBtn._msgTimeout);
+            ppTestBtn._msgTimeout = setTimeout(() => msg.classList.remove("show"), 4000);
+          }
+        } else {
+          alert("Verbindungstest fehlgeschlagen: " + (result && result.error ? result.error : "unbekannter Fehler"));
+        }
+      } catch (e) {
+        alert("Verbindungstest fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      } finally {
+        ppTestBtn.disabled = false;
+        ppTestBtn.textContent = originalLabel;
+      }
+    });
+  }
+  const ppAutoReport = document.getElementById("pp-auto-report");
+  if (ppAutoReport) {
+    ppAutoReport.addEventListener("change", async () => {
+      const desired = ppAutoReport.checked;
+      ppAutoReport.disabled = true;
+      try {
+        await api("/api/admin/paypal-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ autoReportPaymentErrors: desired }),
+        });
+      } catch (e) {
+        ppAutoReport.checked = !desired;
+        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      } finally {
+        ppAutoReport.disabled = false;
+      }
+    });
+  }
+
+  // ---------- Sicherheit ----------
+  // Sehr grobe, rein kosmetische Erkennung von Browser/Gerät aus dem
+  // User-Agent-String - nur zur besseren Lesbarkeit der Sitzungsliste,
+  // keine sicherheitsrelevante Auswertung.
+  function describeUserAgent(ua) {
+    if (!ua) return "Unbekanntes Gerät";
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(ua);
+    let browser = "Browser";
+    if (/Edg\//i.test(ua)) browser = "Edge";
+    else if (/OPR\//i.test(ua)) browser = "Opera";
+    else if (/Chrome\//i.test(ua)) browser = "Chrome";
+    else if (/Firefox\//i.test(ua)) browser = "Firefox";
+    else if (/Safari\//i.test(ua)) browser = "Safari";
+    let os = "";
+    if (/Windows/i.test(ua)) os = "Windows";
+    else if (/Mac OS X/i.test(ua)) os = "Mac";
+    else if (/Android/i.test(ua)) os = "Android";
+    else if (/iPhone|iPad/i.test(ua)) os = "iOS";
+    else if (/Linux/i.test(ua)) os = "Linux";
+    return browser + (os ? " · " + os : "") + (isMobile ? " · Mobil" : "");
+  }
+  function renderSecuritySessions(sessions) {
+    const list = document.getElementById("sec-sessions-list");
+    if (!list) return;
+    if (!sessions || !sessions.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Keine aktiven Sitzungen protokolliert.</div>';
+      return;
+    }
+    list.innerHTML = sessions.map((s) => {
+      const isCurrent = s.sessionId && s.sessionId === sessionId;
+      return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12.5px;display:flex;justify-content:space-between;gap:10px;align-items:center' +
+        (isCurrent ? ';background:rgba(46,160,90,.08)' : '') + '">' +
+        '<div>' +
+          '<b>' + escapeHtml(describeUserAgent(s.userAgent)) + (isCurrent ? ' · dieses Gerät' : '') + '</b><br>' +
+          '<span style="color:var(--muted)">' + escapeHtml(s.ip || "IP unbekannt") + ' · zuletzt aktiv ' + escapeHtml(formatDateTimeDe(s.lastSeenAt)) + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+  async function loadSecurity() {
+    const statusEl = document.getElementById("sec-status");
+    const wrap = document.getElementById("sec-fields-wrap");
+    if (!statusEl || !wrap) return;
+    statusEl.textContent = "Lädt …";
+    statusEl.style.display = "block";
+    wrap.style.display = "none";
+    try {
+      const data = await api("/api/admin/security");
+      if (data && data.error) throw new Error(data.error);
+      const autoLogoutEl = document.getElementById("sec-auto-logout");
+      if (autoLogoutEl) autoLogoutEl.value = String((data.settings && data.settings.autoLogoutMinutes) != null ? data.settings.autoLogoutMinutes : 30);
+      const lastLoginEl = document.getElementById("sec-last-login");
+      if (lastLoginEl) {
+        const l = data.lastLogin;
+        lastLoginEl.value = l ? formatDateTimeDe(l.createdAt) + " · " + describeUserAgent(l.userAgent) + (l.ip ? " · " + l.ip : "") : "Keine Daten vorhanden";
+      }
+      const summaryEl = document.getElementById("sec-summary");
+      if (summaryEl) {
+        const minutes = data.settings ? data.settings.autoLogoutMinutes : 30;
+        summaryEl.textContent = minutes > 0
+          ? "🟢 Geschützt – automatische Abmeldung nach " + (minutes === 60 ? "1 Stunde" : minutes + " Minuten") + " Inaktivität"
+          : "🟡 Automatische Abmeldung ist deaktiviert";
+      }
+      renderSecuritySessions(data.sessions);
+      applyAutoLogoutMinutes(data.settings ? data.settings.autoLogoutMinutes : 30);
+      statusEl.style.display = "none";
+      wrap.style.display = "block";
+    } catch (e) {
+      statusEl.textContent = "Sicherheitseinstellungen konnten nicht geladen werden. " + (e && e.message ? e.message : "");
+    }
+  }
+  const secAutoLogoutEl = document.getElementById("sec-auto-logout");
+  if (secAutoLogoutEl) {
+    secAutoLogoutEl.addEventListener("change", async () => {
+      const minutes = Number(secAutoLogoutEl.value);
+      secAutoLogoutEl.disabled = true;
+      try {
+        await api("/api/admin/security-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ autoLogoutMinutes: minutes }),
+        });
+        applyAutoLogoutMinutes(minutes);
+        const msg = document.getElementById("sec-save-msg");
+        if (msg) {
+          msg.classList.add("show");
+          clearTimeout(secAutoLogoutEl._msgTimeout);
+          secAutoLogoutEl._msgTimeout = setTimeout(() => msg.classList.remove("show"), 3000);
+        }
+        loadSecurity();
+      } catch (e) {
+        alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : "unbekannter Fehler"));
+      } finally {
+        secAutoLogoutEl.disabled = false;
+      }
+    });
+  }
+  const secLogoutAllBtn = document.getElementById("sec-logout-all-btn");
+  if (secLogoutAllBtn) {
+    secLogoutAllBtn.addEventListener("click", () => {
+      openConfirmModal(
+        "Wirklich alle Sitzungen beenden? Auch dieses Gerät wird sofort abgemeldet. Das Admin-Token selbst bleibt gültig.",
+        async () => {
+          secLogoutAllBtn.disabled = true;
+          try {
+            await api("/api/admin/sessions/logout-all", { method: "POST" });
+          } catch (_) {
+            // Auch bei Fehler lokal abmelden, damit der Button nie "hängt".
+          }
+          document.getElementById("logout-btn").click();
+        }
+      );
+    });
+  }
+
+  // Automatische Abmeldung bei Inaktivität (client-seitig, Wert aus
+  // /api/admin/security). 0 = "Nie" -> Timer wird nicht gestartet.
+  let autoLogoutMinutes = 30;
+  let autoLogoutTimer = null;
+  function applyAutoLogoutMinutes(minutes) {
+    autoLogoutMinutes = Number(minutes) || 0;
+    resetAutoLogoutTimer();
+  }
+  function resetAutoLogoutTimer() {
+    if (autoLogoutTimer) clearTimeout(autoLogoutTimer);
+    if (!autoLogoutMinutes) return;
+    autoLogoutTimer = setTimeout(() => {
+      const logoutBtn = document.getElementById("logout-btn");
+      if (logoutBtn) logoutBtn.click();
+      showLogin(false);
+      loginError.textContent = "Aus Sicherheitsgründen automatisch abgemeldet (Inaktivität).";
+      loginError.style.display = "block";
+    }, autoLogoutMinutes * 60 * 1000);
+  }
+  let autoLogoutActivityBound = false;
+  function startAutoLogoutWatch() {
+    if (!autoLogoutActivityBound) {
+      ["mousedown", "keydown", "click", "touchstart", "scroll"].forEach((evt) => {
+        document.addEventListener(evt, resetAutoLogoutTimer, { passive: true });
+      });
+      autoLogoutActivityBound = true;
+    }
+    resetAutoLogoutTimer();
+  }
+  function stopAutoLogoutWatch() {
+    if (autoLogoutTimer) clearTimeout(autoLogoutTimer);
+    autoLogoutTimer = null;
+  }
+
+  // Heartbeat: hält "zuletzt aktiv" der eigenen Sitzung in der
+  // Sitzungsliste aktuell. Rein informativ, blockiert nichts bei Fehlern.
+  let heartbeatInterval = null;
+  function startHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (!sessionId) return;
+    heartbeatInterval = setInterval(() => {
+      if (!sessionId) return;
+      api("/api/admin/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      }).catch(() => {});
+    }, 2 * 60 * 1000);
+  }
+  function stopHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+
   // ---------- Rabattcodes ----------
   let discountCodesCache = {};
   let discountEditingCode = "";
@@ -3181,7 +3551,7 @@
 
   // Start
   if (token) {
-    api("/api/admin/bookings?status=pending").then(() => showApp()).catch(() => showLogin(false));
+    api("/api/admin/bookings?status=pending").then(() => { showApp(); startAutoLogoutWatch(); startHeartbeat(); }).catch(() => showLogin(false));
   } else {
     showLogin(false);
   }
