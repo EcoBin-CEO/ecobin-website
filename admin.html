@@ -233,6 +233,10 @@
 
   .empty-state{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
   .loading{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
+  #ma-list .ma-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:8px}
+  #ma-list .ma-item:last-child{margin-bottom:0}
+  #ma-list .ma-username{font-weight:800;color:var(--navy)}
+  #ma-list .ma-token{font-size:11.5px;color:var(--muted);font-family:monospace}
   .placeholder{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:60px 20px;text-align:center;color:var(--muted)}
   .placeholder b{display:block;color:var(--navy);font-size:16px;margin-bottom:6px}
 
@@ -490,6 +494,7 @@
         <button class="sb-item" data-tab="abos"><span class="ic">💳</span> Monatsabos</button>
         <button class="sb-item" data-tab="kunden"><span class="ic">👥</span> Kunden</button>
         <button class="sb-item" data-tab="einstellungen"><span class="ic">⚙️</span> Einstellungen</button>
+        <button class="sb-item" data-tab="mitarbeiter-accounts"><span class="ic">🧑‍💼</span> Mitarbeiter Accounts</button>
       </nav>
       <div class="sb-footer">
         <div class="avatar" id="user-avatar">EB</div>
@@ -1250,6 +1255,23 @@
         </div>
       </main>
 
+      <main class="content" id="view-mitarbeiter-accounts" style="display:none">
+        <div class="greet">
+          <h2>Mitarbeiter Accounts</h2>
+          <p>Zugänge für Mitarbeiter anlegen und verwalten.</p>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head" style="flex-wrap:wrap;gap:10px">
+            <h3 class="pf-section-title" style="margin:0">Alle Mitarbeiter Accounts</h3>
+            <button class="settings-save-btn" id="ma-add-btn" type="button">＋ Mitarbeiter Account hinzufügen</button>
+          </div>
+          <div id="ma-list">
+            <div class="empty-state">Noch keine Mitarbeiter Accounts angelegt.</div>
+          </div>
+        </div>
+      </main>
+
       <main class="content" id="view-placeholder" style="display:none">
         <div class="placeholder">
           <b id="placeholder-title">Bereich</b>
@@ -1301,6 +1323,21 @@
     <div class="modal-actions">
       <button class="small-btn" id="bd-cancel-confirm-no">Abbrechen</button>
       <button class="small-btn modal-danger" id="bd-cancel-confirm-yes">Ja, Termin absagen</button>
+    </div>
+  </div>
+</div>
+
+<div id="ma-add-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Mitarbeiter Account hinzufügen</h3>
+    <div class="field">
+      <label for="ma-username-input">Benutzername eingeben</label>
+      <input type="text" id="ma-username-input" placeholder="z. B. User2" autocomplete="off">
+    </div>
+    <p id="ma-add-error" style="color:var(--danger);font-size:12.5px;margin:-8px 0 14px;display:none"></p>
+    <div class="modal-actions">
+      <button class="small-btn" id="ma-add-cancel">Abbrechen</button>
+      <button class="small-btn modal-accept" id="ma-add-confirm">Fertig</button>
     </div>
   </div>
 </div>
@@ -1372,6 +1409,7 @@
     abos: ["Monatsabos", "Laufende und beendete Abonnements"],
     kunden: ["Kunden", "Alle Kundendatensätze"],
     einstellungen: ["Einstellungen", "Konto- und Systemeinstellungen"],
+    "mitarbeiter-accounts": ["Mitarbeiter Accounts", "Zugänge für Mitarbeiter verwalten"],
   };
 
   function escapeHtml(str) {
@@ -1495,6 +1533,93 @@
 
   document.getElementById("refresh-btn").addEventListener("click", loadDashboard);
 
+  // ---------- Mitarbeiter Accounts ----------
+  // Accounts liegen serverseitig in der Worker-KV (nicht mehr nur lokal
+  // im Browser), damit der Mitarbeiter-Login (mitarbeiter.html) sie
+  // tatsächlich prüfen kann.
+  let mitarbeiterAccounts = [];
+
+  async function loadMitarbeiterAccounts() {
+    const wrap = document.getElementById("ma-list");
+    wrap.innerHTML = '<div class="loading">Lädt …</div>';
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      mitarbeiterAccounts = Array.isArray(data.accounts) ? data.accounts : [];
+    } catch (_) {
+      mitarbeiterAccounts = [];
+    }
+    renderMitarbeiterAccounts();
+  }
+
+  function renderMitarbeiterAccounts() {
+    const wrap = document.getElementById("ma-list");
+    if (!mitarbeiterAccounts.length) {
+      wrap.innerHTML = '<div class="empty-state">Noch keine Mitarbeiter Accounts angelegt.</div>';
+      return;
+    }
+    wrap.innerHTML = mitarbeiterAccounts.map((acc) =>
+      `<div class="ma-item"><span class="ma-username">${escapeHtml(acc.username)}</span><span class="ma-token">Token: ${escapeHtml(acc.token)}</span></div>`
+    ).join("");
+  }
+
+  function openMaAddModal() {
+    document.getElementById("ma-username-input").value = "";
+    document.getElementById("ma-add-error").style.display = "none";
+    document.getElementById("ma-add-modal").style.display = "flex";
+    document.getElementById("ma-username-input").focus();
+  }
+
+  function closeMaAddModal() {
+    document.getElementById("ma-add-modal").style.display = "none";
+  }
+
+  async function confirmMaAdd() {
+    const input = document.getElementById("ma-username-input");
+    const errorEl = document.getElementById("ma-add-error");
+    const username = input.value.trim();
+    if (!username) {
+      errorEl.textContent = "Bitte einen Benutzernamen eingeben.";
+      errorEl.style.display = "block";
+      return;
+    }
+    errorEl.style.display = "none";
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        errorEl.textContent = data.error === "Dieser Benutzername existiert bereits"
+          ? "Dieser Benutzername existiert bereits."
+          : "Anlegen fehlgeschlagen. Bitte erneut versuchen.";
+        errorEl.style.display = "block";
+        return;
+      }
+      await loadMitarbeiterAccounts();
+      closeMaAddModal();
+    } catch (_) {
+      errorEl.textContent = "Anlegen fehlgeschlagen. Bitte erneut versuchen.";
+      errorEl.style.display = "block";
+    }
+  }
+
+  document.getElementById("ma-add-btn").addEventListener("click", openMaAddModal);
+  document.getElementById("ma-add-cancel").addEventListener("click", closeMaAddModal);
+  document.getElementById("ma-add-confirm").addEventListener("click", confirmMaAdd);
+  document.getElementById("ma-add-modal").addEventListener("click", (e) => {
+    if (e.target.id === "ma-add-modal") closeMaAddModal();
+  });
+  document.getElementById("ma-username-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") confirmMaAdd();
+  });
+
+  loadMitarbeiterAccounts();
+
   // Navigation
   document.querySelectorAll("[data-tab]").forEach((el) => {
     el.addEventListener("click", () => switchTab(el.dataset.tab));
@@ -1504,13 +1629,14 @@
     const [title, sub] = PAGE_TITLES[tab] || ["Dashboard", ""];
     document.getElementById("page-title").textContent = title;
     document.getElementById("page-sub").textContent = sub;
-    const namedViews = ["dashboard", "postfach", "kalender", "abos", "kunden", "einstellungen"];
+    const namedViews = ["dashboard", "postfach", "kalender", "abos", "kunden", "einstellungen", "mitarbeiter-accounts"];
     document.getElementById("view-dashboard").style.display = tab === "dashboard" ? "block" : "none";
     document.getElementById("view-postfach").style.display = tab === "postfach" ? "block" : "none";
     document.getElementById("view-kalender").style.display = tab === "kalender" ? "block" : "none";
     document.getElementById("view-abos").style.display = tab === "abos" ? "block" : "none";
     document.getElementById("view-kunden").style.display = tab === "kunden" ? "block" : "none";
     document.getElementById("view-einstellungen").style.display = tab === "einstellungen" ? "block" : "none";
+    document.getElementById("view-mitarbeiter-accounts").style.display = tab === "mitarbeiter-accounts" ? "block" : "none";
     document.getElementById("view-kunde-detail").style.display = "none";
     document.getElementById("view-kunden-detail").style.display = "none";
     if (!namedViews.includes(tab)) {
