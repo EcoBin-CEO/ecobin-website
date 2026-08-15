@@ -114,6 +114,47 @@
   .modal-box{background:#fff;border-radius:12px;padding:24px 26px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:86vh;overflow-y:auto}
   .modal-box h3{margin:0 0 10px;font-size:17px;color:var(--navy)}
   .sb-badge{background:var(--lime);color:var(--green-dark);font-size:10.5px;font-weight:800;border-radius:9px;padding:1px 7px;margin-left:auto}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px}
+  .modal-danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  .modal-danger:hover{background:#a81f1f}
+
+  /* ---------- Kalender (Look identisch zur Admin-Verwaltung) ---------- */
+  .cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+  .cal-nav{display:flex;align-items:center;gap:8px}
+  .cal-nav-btn{border:1px solid var(--line);background:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:14px;color:var(--navy);display:flex;align-items:center;justify-content:center}
+  .cal-nav-btn:hover{background:#f2f2ec}
+  .cal-today-btn{border:1px solid var(--line);background:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-today-btn:hover{background:#f2f2ec}
+  .cal-title{font-size:17px;font-weight:800;text-align:center;flex:1}
+  .cal-view-toggle{display:flex;gap:4px;border:1px solid var(--line);border-radius:8px;padding:3px;background:#fff}
+  .cal-view-btn{border:0;background:transparent;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-view-btn.active{background:var(--navy);color:#fff}
+  .cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line)}
+  .cal-dayhead{background:var(--card);padding:10px 8px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .cal-cell{background:#fff;min-height:112px;padding:10px;display:flex;flex-direction:column;gap:6px}
+  .cal-cell.out-month{background:#fbfbf8}
+  .cal-cell.out-month .cal-daynum{color:#c7c9c2}
+  .cal-cell.has-events{background:var(--ok-bg)}
+  .cal-cell.today{outline:2px solid var(--green);outline-offset:-2px}
+  .cal-daynum{align-self:flex-end;font-size:13px;font-weight:700;color:var(--navy)}
+  .cal-event{background:#fff;border-radius:7px;padding:6px 8px;font-size:11px;box-shadow:0 0 0 1px var(--line) inset;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+  .cal-event:hover{box-shadow:0 0 0 1px var(--navy-2) inset,0 2px 8px rgba(0,0,0,.08)}
+  .cal-event-top{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+  .cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--green-dark)}
+  .cal-name{font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cal-event-bottom{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .cal-price{font-weight:700;color:var(--navy)}
+  .cal-status{font-weight:700;font-size:10px;white-space:nowrap;color:var(--green-dark)}
+  @media(max-width:760px){ .cal-scroll{overflow-x:auto} .cal-grid{grid-template-columns:repeat(7,minmax(104px,1fr))} }
+
+  /* ---------- Buchungsdetail: nachträglich absagen (Kalender) ---------- */
+  .bd-cancel-btn{width:100%;margin-top:18px;padding:12px 16px;border:1px solid var(--danger);background:var(--danger);color:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+  .bd-cancel-btn:hover{background:#a81f1f}
+  .bd-cancel-btn:disabled{opacity:.6;cursor:not-allowed}
+  .bd-action-msg{font-size:12.5px;margin-top:12px;padding:8px 11px;border-radius:8px;display:none}
+  .bd-action-msg.ok{display:block;background:var(--ok-bg);color:var(--green-dark)}
+  .bd-action-msg.error{display:block;background:var(--danger-bg);color:var(--danger)}
 
   /* ---------- Gesperrte Bereiche (Monatsabos / Kunden / Einstellungen) ---------- */
   .locked{background:#15191d;border-radius:16px;min-height:60vh;display:flex;align-items:center;justify-content:center}
@@ -183,6 +224,7 @@
       <nav class="sb-nav">
         <button class="sb-item active" type="button" data-tab="dashboard"><span class="ic">📊</span><span>Dashboard</span></button>
         <button class="sb-item" type="button" data-tab="postfach"><span class="ic">📮</span><span>Postfach</span><span class="sb-badge" id="pf-badge" style="display:none">0</span></button>
+        <button class="sb-item" type="button" data-tab="kalender"><span class="ic">🗓️</span><span>Kalender</span></button>
         <button class="sb-item" type="button" data-tab="monatsabos"><span class="ic">💳</span><span>Monatsabos</span></button>
         <button class="sb-item" type="button" data-tab="kunden"><span class="ic">👥</span><span>Kunden</span></button>
         <button class="sb-item" type="button" data-tab="einstellungen"><span class="ic">⚙️</span><span>Einstellungen</span></button>
@@ -221,6 +263,30 @@
             <button class="refresh-btn" id="pf-refresh-btn" type="button">🔄 Aktualisieren</button>
           </div>
           <div id="postfach-open"><div class="loading">Lädt …</div></div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kalender" style="display:none">
+        <div class="greet">
+          <h2>Kalender</h2>
+          <p>Übersicht der angenommenen Reinigungstermine – Wochen- oder Monatsansicht.</p>
+        </div>
+
+        <div class="cal-toolbar">
+          <div class="cal-nav">
+            <button class="cal-nav-btn" id="cal-prev" type="button">←</button>
+            <button class="cal-today-btn" id="cal-today" type="button">Heute</button>
+            <button class="cal-nav-btn" id="cal-next" type="button">→</button>
+          </div>
+          <div class="cal-title" id="cal-title">–</div>
+          <div class="cal-view-toggle">
+            <button class="cal-view-btn" type="button" data-cal-view="week">Woche</button>
+            <button class="cal-view-btn active" type="button" data-cal-view="month">Monat</button>
+          </div>
+        </div>
+
+        <div class="cal-scroll">
+          <div class="cal-grid" id="cal-grid"></div>
         </div>
       </main>
 
@@ -281,7 +347,21 @@
     <h3 id="bd-title">Buchung</h3>
     <span class="pill" id="bd-status"></span>
     <div id="bd-fields"></div>
+    <button class="bd-cancel-btn" id="bd-cancel-btn" style="display:none">Termin nachträglich absagen</button>
+    <p class="bd-action-msg" id="bd-action-msg"></p>
     <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
+  </div>
+</div>
+
+<div id="bd-cancel-confirm-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Termin wirklich absagen?</h3>
+    <p id="bd-cancel-confirm-text">Möchtest du diesen Termin wirklich nachträglich absagen?</p>
+    <p style="color:var(--muted);font-size:12px;margin:0 0 14px">Die Buchung wird dadurch wieder auf „unbeantwortet" gesetzt und verschwindet aus deinem Kalender. Der Admin und alle anderen Mitarbeiter sehen sie danach wieder als offene Anfrage und können sie erneut annehmen oder ablehnen.</p>
+    <div class="modal-actions">
+      <button class="small-btn" type="button" id="bd-cancel-confirm-no">Abbrechen</button>
+      <button class="small-btn modal-danger" type="button" id="bd-cancel-confirm-yes">Ja, Termin absagen</button>
+    </div>
   </div>
 </div>
 
@@ -345,6 +425,7 @@
   const TAB_TITLES = {
     dashboard: "Dashboard",
     postfach: "Postfach",
+    kalender: "Kalender",
     monatsabos: "Monatsabos",
     kunden: "Kunden",
     einstellungen: "Einstellungen",
@@ -360,6 +441,7 @@
       if (target) target.style.display = "block";
       pageTitle.textContent = TAB_TITLES[tab] || "";
       if (tab === "postfach") loadPostfach();
+      if (tab === "kalender") loadCalendar();
     });
   });
   function escapeHtml(str) {
@@ -482,14 +564,34 @@
     return rows.map(([k, v]) => '<div class="mail-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>").join("");
   }
 
-  function openBookingDetail(uid) {
-    const b = currentPfBookings.find((x) => String(x.id != null ? x.id : "") === String(uid));
+  // currentBookingDetailUid/-Source merken sich, aus welcher Liste (Postfach
+  // "Angenommen" oder Kalender) die aktuell geöffnete Detailansicht stammt -
+  // wird für den "Termin nachträglich absagen"-Button im Kalender gebraucht.
+  let currentBookingDetailUid = null;
+  let currentBookingDetailSource = null;
+
+  function findDetailBooking(uid, source) {
+    const list = source || currentBookingDetailSource || currentPfBookings;
+    return list.find((x) => String(x.id != null ? x.id : "") === String(uid));
+  }
+
+  // withCancel: true, wenn die Detailansicht aus dem Kalender geöffnet wurde -
+  // nur dort gibt es den Button "Termin nachträglich absagen" (siehe unten).
+  function openBookingDetail(uid, source, withCancel) {
+    const list = source || currentPfBookings;
+    const b = findDetailBooking(uid, list);
     if (!b) return;
+    currentBookingDetailUid = uid;
+    currentBookingDetailSource = list;
     document.getElementById("bd-title").textContent = b.name || "Buchung";
     const statusEl = document.getElementById("bd-status");
     statusEl.className = "pill pill-ok";
     statusEl.textContent = "Angenommen";
     document.getElementById("bd-fields").innerHTML = bdFieldsHtml(b);
+    const cancelBtn = document.getElementById("bd-cancel-btn");
+    if (cancelBtn) cancelBtn.style.display = withCancel && b.status === "accepted" ? "block" : "none";
+    const msg = document.getElementById("bd-action-msg");
+    if (msg) { msg.className = "bd-action-msg"; msg.textContent = ""; }
     document.getElementById("booking-detail-modal").style.display = "flex";
   }
   document.getElementById("bd-close-btn").addEventListener("click", () => {
@@ -534,7 +636,7 @@
     const hideBtn = e.target.closest(".ma-hide-btn");
     if (hideBtn) { hideBooking(hideBtn.getAttribute("data-uid"), hideBtn); return; }
     const card = e.target.closest(".mail-card.clickable");
-    if (card) { openBookingDetail(card.getAttribute("data-uid")); return; }
+    if (card) { openBookingDetail(card.getAttribute("data-uid"), currentPfBookings, false); return; }
   });
 
   document.querySelectorAll("#pf-tabs .pf-tab").forEach((btn) => {
@@ -598,6 +700,213 @@
     }
   }
   document.getElementById("pf-refresh-btn").addEventListener("click", loadPostfach);
+
+  /* ---------- Kalender (Look & Logik wie in der Admin-Verwaltung) ---------- */
+  let calView = "month";
+  let calDate = new Date();
+  calDate.setHours(0, 0, 0, 0);
+  let currentCalBookings = [];
+
+  function todayIsoM() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function isoDateOfM(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function addDaysCalM(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    r.setHours(0, 0, 0, 0);
+    return r;
+  }
+  function startOfWeekCalM(d) {
+    const day = d.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    return addDaysCalM(d, diff);
+  }
+  function capitalizeM(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function buildMonthDaysM(refDate) {
+    const year = refDate.getFullYear(), month = refDate.getMonth();
+    const first = new Date(year, month, 1);
+    const last = new Date(year, month + 1, 0);
+    const start = startOfWeekCalM(first);
+    const totalDays = Math.round((last - start) / 86400000) + 1;
+    const totalCells = Math.ceil(totalDays / 7) * 7;
+    const days = [];
+    for (let i = 0; i < totalCells; i++) days.push(addDaysCalM(start, i));
+    return days;
+  }
+  function buildWeekDaysM(refDate) {
+    const start = startOfWeekCalM(refDate);
+    const days = [];
+    for (let i = 0; i < 7; i++) days.push(addDaysCalM(start, i));
+    return days;
+  }
+  function calTitleTextM() {
+    if (calView === "month") {
+      return capitalizeM(calDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" }));
+    }
+    const days = buildWeekDaysM(calDate);
+    const start = days[0], end = days[6];
+    if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+      return start.getDate() + ".–" + end.getDate() + ". " + capitalizeM(end.toLocaleDateString("de-DE", { month: "long", year: "numeric" }));
+    }
+    const mStart = start.toLocaleDateString("de-DE", { month: "short" });
+    const mEnd = end.toLocaleDateString("de-DE", { month: "short", year: "numeric" });
+    return start.getDate() + ". " + mStart + " – " + end.getDate() + ". " + mEnd;
+  }
+  function calEventHtmlM(b) {
+    return (
+      '<div class="cal-event" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">' +
+      '<div class="cal-event-top"><span class="cal-dot"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + "</span></div>" +
+      '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status">Angenommen</span></div>' +
+      "</div>"
+    );
+  }
+  function renderCalendarUI() {
+    const titleEl = document.getElementById("cal-title");
+    const gridEl = document.getElementById("cal-grid");
+    if (!titleEl || !gridEl) return;
+    titleEl.textContent = calTitleTextM();
+    document.querySelectorAll(".cal-view-btn").forEach((b) => b.classList.toggle("active", b.dataset.calView === calView));
+
+    const todayI = todayIsoM();
+    const byDate = {};
+    currentCalBookings.filter((b) => b.date).forEach((b) => {
+      (byDate[b.date] = byDate[b.date] || []).push(b);
+    });
+
+    const days = calView === "month" ? buildMonthDaysM(calDate) : buildWeekDaysM(calDate);
+    const currentMonth = calDate.getMonth();
+    const dayHeadNames = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
+
+    let html = dayHeadNames.map((n) => '<div class="cal-dayhead">' + n + "</div>").join("");
+    html += days.map((day) => {
+      const iso = isoDateOfM(day);
+      const evts = (byDate[iso] || []).slice().sort((a, c) => (a.name || "").localeCompare(c.name || ""));
+      const isToday = iso === todayI;
+      const inMonth = calView === "week" ? true : day.getMonth() === currentMonth;
+      let cls = "cal-cell";
+      if (evts.length) cls += " has-events";
+      if (isToday) cls += " today";
+      if (!inMonth) cls += " out-month";
+      return (
+        '<div class="' + cls + '">' +
+        '<div class="cal-daynum">' + day.getDate() + "</div>" +
+        evts.map((b) => calEventHtmlM(b)).join("") +
+        "</div>"
+      );
+    }).join("");
+
+    gridEl.innerHTML = html;
+    gridEl.querySelectorAll(".cal-event[data-uid]").forEach((el) => {
+      el.addEventListener("click", () => openBookingDetail(el.dataset.uid, currentCalBookings, true));
+    });
+  }
+  async function loadCalendar() {
+    const gridEl = document.getElementById("cal-grid");
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/bookings?view=calendar", {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      if (!res.ok) throw new Error();
+      const list = await res.json().catch(() => []);
+      currentCalBookings = Array.isArray(list) ? list : [];
+    } catch (_) {
+      currentCalBookings = [];
+      if (gridEl) gridEl.innerHTML = '<div class="empty-state">Fehler beim Laden des Kalenders.</div>';
+      return;
+    }
+    renderCalendarUI();
+  }
+  document.getElementById("cal-prev").addEventListener("click", () => {
+    calDate = calView === "month" ? new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1) : addDaysCalM(calDate, -7);
+    renderCalendarUI();
+  });
+  document.getElementById("cal-next").addEventListener("click", () => {
+    calDate = calView === "month" ? new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1) : addDaysCalM(calDate, 7);
+    renderCalendarUI();
+  });
+  document.getElementById("cal-today").addEventListener("click", () => {
+    calDate = new Date();
+    calDate.setHours(0, 0, 0, 0);
+    renderCalendarUI();
+  });
+  document.querySelectorAll(".cal-view-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      calView = btn.getAttribute("data-cal-view");
+      renderCalendarUI();
+    });
+  });
+
+  /* ---------- Termin nachträglich absagen (nur aus dem Kalender) ----------
+     Setzt eine angenommene Buchung über die Worker-API wieder auf
+     "unbeantwortet" (pending) zurück - sichtbar für Admin und alle
+     Mitarbeiter im Postfach, verschwindet aus diesem Kalender. */
+  const cancelConfirmModalM = document.getElementById("bd-cancel-confirm-modal");
+  const cancelConfirmYesM = document.getElementById("bd-cancel-confirm-yes");
+  const cancelConfirmNoM = document.getElementById("bd-cancel-confirm-no");
+  let cancelInProgressM = false;
+
+  function resetCancelConfirmStateM() {
+    cancelInProgressM = false;
+    cancelConfirmYesM.disabled = false;
+    cancelConfirmNoM.disabled = false;
+    cancelConfirmModalM.style.display = "none";
+  }
+  document.getElementById("bd-cancel-btn").addEventListener("click", () => {
+    const uid = currentBookingDetailUid;
+    const b = findDetailBooking(uid);
+    if (!uid || !b || b.status !== "accepted" || cancelInProgressM) return;
+    document.getElementById("bd-cancel-confirm-text").textContent =
+      "Möchtest du den Termin am " + formatDateDe(b.date) + " für " + (b.name || "diesen Kunden") + " wirklich nachträglich absagen?";
+    cancelConfirmYesM.disabled = false;
+    cancelConfirmNoM.disabled = false;
+    cancelInProgressM = false;
+    cancelConfirmModalM.style.display = "flex";
+  });
+  cancelConfirmNoM.addEventListener("click", resetCancelConfirmStateM);
+  cancelConfirmModalM.addEventListener("click", (e) => {
+    if (e.target.id === "bd-cancel-confirm-modal" && !cancelInProgressM) resetCancelConfirmStateM();
+  });
+  cancelConfirmYesM.addEventListener("click", async () => {
+    const uid = currentBookingDetailUid;
+    const b = findDetailBooking(uid);
+    if (!uid || !b || b.status !== "accepted" || cancelInProgressM) { resetCancelConfirmStateM(); return; }
+
+    cancelInProgressM = true;
+    cancelConfirmYesM.disabled = true;
+    cancelConfirmNoM.disabled = true;
+
+    const msg = document.getElementById("bd-action-msg");
+    msg.className = "bd-action-msg";
+    msg.textContent = "Termin wird abgesagt …";
+
+    try {
+      const idForApi = b.id != null ? b.id : uid;
+      const res = await fetch(WORKER_URL + "/api/staff/bookings/" + encodeURIComponent(idForApi) + "/unaccept", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error || data.status !== "pending") throw new Error((data && data.error) || "Die Absage konnte nicht bestätigt werden.");
+
+      cancelConfirmModalM.style.display = "none";
+      resetCancelConfirmStateM();
+      currentBookingDetailUid = null;
+      document.getElementById("booking-detail-modal").style.display = "none";
+
+      currentCalBookings = currentCalBookings.filter((x) => String(x.id != null ? x.id : "") !== String(uid));
+      renderCalendarUI();
+      refreshPfBadge();
+      if (pfView === "open") loadPostfach();
+    } catch (err) {
+      msg.className = "bd-action-msg error";
+      msg.textContent = (err && err.message) || "Die Absage ist fehlgeschlagen. Bitte erneut versuchen.";
+      resetCancelConfirmStateM();
+    }
+  });
 
   loginBtn.addEventListener("click", async () => {
     const user = userInput.value.trim();
