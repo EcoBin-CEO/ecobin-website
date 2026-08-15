@@ -69,9 +69,23 @@
   header.topbar h1{font-size:19px;margin:0}
   main.content{padding:26px 28px 50px;max-width:1180px}
 
-  /* ---------- Postfach (Buchungsanfragen) – Look wie in der Admin-Verwaltung ---------- */
+  /* ---------- Dashboard – Look wie in der Admin-Verwaltung ---------- */
   .greet h2{font-size:23px;margin:0 0 4px}
   .greet p{color:var(--muted);margin:0 0 22px;font-size:13.5px}
+  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:24px}
+  .stat-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .stat-card.dashboard-alert{border:2px solid var(--danger);background:var(--danger-bg)}
+  .stat-card.dashboard-alert .val{color:var(--danger)}
+  .stat-card .lbl{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .stat-card .val{font-size:26px;font-weight:800;color:var(--navy);margin:8px 0 3px}
+  .stat-card .sub{font-size:11.5px;color:var(--muted)}
+  .stat-card .sub.warn{color:#9a6700}
+  .stat-card .sub.ok{color:var(--green-dark)}
+  .grid2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:start;margin-bottom:16px}
+  .dashboard-notifications.alert{border:2px solid var(--danger);background:var(--danger-bg)}
+  .dashboard-alert-badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:var(--danger);color:#fff;font-size:14px;font-weight:900;line-height:1}
+
+  /* ---------- Postfach (Buchungsanfragen) – Look wie in der Admin-Verwaltung ---------- */
   .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
   .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
   .panel-head h3{margin:0;font-size:15.5px}
@@ -172,6 +186,7 @@
     .login-right{padding:24px}
     .sidebar{width:72px}
     .sb-logo .name,.sb-logo .sub,.sb-item span{display:none}
+    .grid2{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -244,7 +259,41 @@
       </header>
 
       <main class="content" id="view-dashboard">
-        <!-- Absichtlich noch ohne Inhalt: kein Kalender, kein Postfach. Kommt später. -->
+        <div class="greet">
+          <h2>Guten Tag 👋</h2>
+          <p>Hier siehst du deine offenen Buchungsanfragen und deine nächsten angenommenen Termine.</p>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card" id="ma-stat-open-card">
+            <div class="lbl">Offene Buchungen</div>
+            <div class="val" id="ma-stat-open">–</div>
+            <div class="sub warn">warten auf Bestätigung</div>
+          </div>
+          <div class="stat-card">
+            <div class="lbl">Bevorstehende Termine</div>
+            <div class="val" id="ma-stat-upcoming">–</div>
+            <div class="sub ok">von dir angenommen</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Nächste Termine</h3>
+              <button class="small-btn" type="button" data-tab="kalender">Zum Kalender</button>
+            </div>
+            <div id="ma-next-appointments"><div class="loading">Lädt …</div></div>
+          </div>
+          <div class="panel dashboard-notifications" id="ma-dashboard-notifications-panel">
+            <div class="panel-head">
+              <h3>Offene Buchungen</h3>
+              <span class="dashboard-alert-badge" id="ma-dashboard-open-badge" style="display:none">0</span>
+              <button class="small-btn" type="button" data-tab="postfach">Zum Postfach</button>
+            </div>
+            <div id="ma-dashboard-notifications"><div class="loading">Lädt …</div></div>
+          </div>
+        </div>
       </main>
 
       <main class="content" id="view-postfach" style="display:none">
@@ -419,6 +468,7 @@
     document.getElementById("user-avatar").textContent = initialsOf(displayName);
     document.getElementById("user-name").textContent = displayName;
     applyExtendedAccess();
+    loadDashboardM();
     loadPostfach();
   }
 
@@ -431,18 +481,20 @@
     einstellungen: "Einstellungen",
   };
   const pageTitle = document.getElementById("page-title");
-  document.querySelectorAll(".sb-item[data-tab]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const tab = btn.getAttribute("data-tab");
-      document.querySelectorAll(".sb-item[data-tab]").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.querySelectorAll("main.content[id^='view-']").forEach((view) => { view.style.display = "none"; });
-      const target = document.getElementById("view-" + tab);
-      if (target) target.style.display = "block";
-      pageTitle.textContent = TAB_TITLES[tab] || "";
-      if (tab === "postfach") loadPostfach();
-      if (tab === "kalender") loadCalendar();
-    });
+  function switchTabM(tab) {
+    document.querySelectorAll(".sb-item[data-tab]").forEach((b) => b.classList.toggle("active", b.getAttribute("data-tab") === tab));
+    document.querySelectorAll("main.content[id^='view-']").forEach((view) => { view.style.display = "none"; });
+    const target = document.getElementById("view-" + tab);
+    if (target) target.style.display = "block";
+    pageTitle.textContent = TAB_TITLES[tab] || "";
+    if (tab === "dashboard") loadDashboardM();
+    if (tab === "postfach") loadPostfach();
+    if (tab === "kalender") loadCalendar();
+  }
+  // Alle Buttons mit data-tab wechseln die Ansicht - nicht nur die Sidebar,
+  // sondern auch die "Zum Postfach"/"Zum Kalender"-Buttons im Dashboard.
+  document.querySelectorAll("[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => switchTabM(btn.getAttribute("data-tab")));
   });
   function escapeHtml(str) {
     return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -701,6 +753,98 @@
   }
   document.getElementById("pf-refresh-btn").addEventListener("click", loadPostfach);
 
+  /* ---------- Dashboard: offene Buchungen (Vorschau) + nächste eigene Termine ----------
+     Nutzt dieselben Staff-Endpunkte wie Postfach ("view=open") und Kalender
+     ("view=calendar", liefert nur die vom eingeloggten Mitarbeiter selbst
+     angenommenen Buchungen). Kein eigener neuer Endpunkt nötig. */
+  let currentDashboardOpenBookings = [];
+  let currentDashboardUpcoming = [];
+
+  // Vorschau-Karte für offene Buchungen im Dashboard: rein informativ, ohne
+  // Annehmen/Ausblenden-Buttons - diese Aktionen bleiben dem Postfach vorbehalten.
+  function dashboardOpenCardHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    return (
+      '<div class="mail-card" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
+      '<div class="mail-row"><span class="k">Status</span><span class="pill pill-new">Neu</span></div>' +
+      "</div>"
+    );
+  }
+
+  function renderDashboardM() {
+    const todayI = todayIsoM();
+
+    const openSorted = currentDashboardOpenBookings
+      .slice()
+      .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""));
+    const openCount = openSorted.length;
+
+    const statOpenEl = document.getElementById("ma-stat-open");
+    if (statOpenEl) statOpenEl.textContent = openCount;
+    const statOpenCard = document.getElementById("ma-stat-open-card");
+    if (statOpenCard) statOpenCard.classList.toggle("dashboard-alert", openCount > 0);
+
+    const badge = document.getElementById("ma-dashboard-open-badge");
+    const notifPanel = document.getElementById("ma-dashboard-notifications-panel");
+    if (badge) {
+      badge.textContent = openCount;
+      badge.style.display = openCount > 0 ? "inline-flex" : "none";
+    }
+    if (notifPanel) notifPanel.classList.toggle("alert", openCount > 0);
+
+    const notifWrap = document.getElementById("ma-dashboard-notifications");
+    if (notifWrap) {
+      notifWrap.innerHTML = openSorted.length
+        ? openSorted.slice(0, 3).map(dashboardOpenCardHtml).join("")
+        : '<div class="empty-state">Keine offenen Buchungsanfragen.</div>';
+    }
+
+    const upcoming = currentDashboardUpcoming
+      .filter((b) => b.date && b.date >= todayI)
+      .slice()
+      .sort((a, c) => a.date.localeCompare(c.date))
+      .slice(0, 5);
+    const statUpcomingEl = document.getElementById("ma-stat-upcoming");
+    if (statUpcomingEl) statUpcomingEl.textContent = upcoming.length;
+
+    const nextWrap = document.getElementById("ma-next-appointments");
+    if (nextWrap) {
+      nextWrap.innerHTML = upcoming.length
+        ? upcoming.map(acceptedCardHtml).join("")
+        : '<div class="empty-state">Keine bevorstehenden Termine.</div>';
+      nextWrap.querySelectorAll(".mail-card.clickable").forEach((card) => {
+        card.addEventListener("click", () => openBookingDetail(card.getAttribute("data-uid"), currentDashboardUpcoming, true));
+      });
+    }
+  }
+
+  async function loadDashboardM() {
+    const notifWrap = document.getElementById("ma-dashboard-notifications");
+    const nextWrap = document.getElementById("ma-next-appointments");
+    try {
+      const [openRes, calRes] = await Promise.all([
+        fetch(WORKER_URL + "/api/staff/bookings?view=open", { headers: { "Authorization": "Bearer " + token } }),
+        fetch(WORKER_URL + "/api/staff/bookings?view=calendar", { headers: { "Authorization": "Bearer " + token } }),
+      ]);
+      if (!openRes.ok || !calRes.ok) throw new Error();
+      const openList = await openRes.json().catch(() => []);
+      const calList = await calRes.json().catch(() => []);
+      currentDashboardOpenBookings = Array.isArray(openList) ? openList : [];
+      currentDashboardUpcoming = Array.isArray(calList) ? calList : [];
+    } catch (_) {
+      currentDashboardOpenBookings = [];
+      currentDashboardUpcoming = [];
+      if (notifWrap) notifWrap.innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+      if (nextWrap) nextWrap.innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+      return;
+    }
+    renderDashboardM();
+  }
+
   /* ---------- Kalender (Look & Logik wie in der Admin-Verwaltung) ---------- */
   let calView = "month";
   let calDate = new Date();
@@ -899,6 +1043,9 @@
 
       currentCalBookings = currentCalBookings.filter((x) => String(x.id != null ? x.id : "") !== String(uid));
       renderCalendarUI();
+      // Die Buchung gilt jetzt wieder als "offen" - Dashboard komplett neu laden,
+      // damit sie ggf. in "Offene Buchungen" erscheint und aus "Nächste Termine" verschwindet.
+      loadDashboardM();
       refreshPfBadge();
       if (pfView === "open") loadPostfach();
     } catch (err) {
