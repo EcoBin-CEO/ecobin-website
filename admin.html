@@ -1376,7 +1376,9 @@
       <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Erstellt einen Code, den du diesem Mitarbeiter gibst. Gibt er ihn im Mitarbeiterbereich ein, werden „Monatsabos“, „Kunden“ und „Einstellungen“ für ihn freigeschaltet.</p>
       <p id="ma-edit-access-status" style="font-size:12.5px;margin:0 0 8px"></p>
       <div id="ma-edit-code-display" style="font-family:monospace;font-size:15px;letter-spacing:1px;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:none"></div>
+      <p id="ma-edit-already-used-note" style="font-size:12.5px;color:var(--green-dark);margin:0 0 8px;display:none">✓ Dieser Mitarbeiter hat bereits einen Zugriffscode eingelöst und ist freigeschaltet.</p>
       <button type="button" class="small-btn" id="ma-edit-gen-code-btn">🔑 Zugriffscode erstellen</button>
+      <button type="button" class="small-btn modal-danger" id="ma-edit-revoke-access-btn" style="display:none;margin-left:8px">🚫 Zugriff einschränken</button>
     </div>
     <p id="ma-edit-error" style="color:var(--danger);font-size:12.5px;margin:6px 0 0;display:none"></p>
     <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start;margin-top:16px">
@@ -1636,9 +1638,44 @@
   function updateMaEditAccessStatus() {
     const statusEl = document.getElementById("ma-edit-access-status");
     if (!statusEl) return;
-    const unlocked = !!(maEditCurrent && maEditCurrent.extendedAccess);
-    statusEl.innerHTML = "Status: <span class=\"pill " + (unlocked ? "pill-ok" : "pill-done") + "\">" +
-      (unlocked ? "Freigeschaltet" : "Noch nicht freigeschaltet") + "</span>";
+    // "Aktiv" sobald ein Code existiert (egal ob schon vom Mitarbeiter
+    // eingelöst oder noch nicht) - der Code bleibt so lange gültig/gespeichert,
+    // bis er eingelöst oder ein neuer erstellt wird.
+    const active = !!(maEditCurrent && (maEditCurrent.extendedAccess || maEditCurrent.accessCode));
+    statusEl.innerHTML = "Status: <span class=\"pill " + (active ? "pill-ok" : "pill-done") + "\">" +
+      (active ? "Aktiv" : "Noch nicht freigeschaltet") + "</span>";
+  }
+
+  // Solange ein Code existiert, wird er anstelle des "Zugriffscode
+  // erstellen"-Buttons angezeigt (der Button ist dann nicht mehr nötig,
+  // es gibt ja schon einen gültigen Code). Erst wenn kein Code mehr
+  // gespeichert ist (z. B. nach dem Einlösen durch den Mitarbeiter),
+  // erscheint der Button wieder, um einen neuen zu erstellen.
+  function renderMaEditCodeArea() {
+    const codeDisplay = document.getElementById("ma-edit-code-display");
+    const genBtn = document.getElementById("ma-edit-gen-code-btn");
+    const usedNote = document.getElementById("ma-edit-already-used-note");
+    const revokeBtn = document.getElementById("ma-edit-revoke-access-btn");
+    const code = maEditCurrent && maEditCurrent.accessCode;
+    const hasAccess = !!(maEditCurrent && maEditCurrent.extendedAccess);
+    if (code) {
+      codeDisplay.textContent = code;
+      codeDisplay.style.display = "block";
+      genBtn.style.display = "none";
+      usedNote.style.display = "none";
+    } else {
+      codeDisplay.textContent = "";
+      codeDisplay.style.display = "none";
+      genBtn.style.display = "inline-block";
+      // Kein aktueller Code, aber der Mitarbeiter hat schon mal einen
+      // eingelöst (extendedAccess) - das soll trotzdem sichtbar bleiben,
+      // auch wenn nur noch der Button dasteht.
+      usedNote.style.display = hasAccess ? "block" : "none";
+    }
+    // "Zugriff einschränken" gibt es, sobald der Mitarbeiter aktuell
+    // freigeschaltet ist - egal ob gerade auch noch ein (nicht eingelöster)
+    // Code angezeigt wird oder nicht.
+    revokeBtn.style.display = hasAccess ? "inline-block" : "none";
   }
 
   function openMaEditModal(username) {
@@ -1648,9 +1685,10 @@
     document.getElementById("ma-edit-username-input").value = acc.username;
     document.getElementById("ma-edit-token-display").textContent = acc.token;
     document.getElementById("ma-edit-error").style.display = "none";
-    const codeDisplay = document.getElementById("ma-edit-code-display");
-    codeDisplay.style.display = "none";
-    codeDisplay.textContent = "";
+    // Ein bereits erstellter, noch nicht eingelöster Code bleibt gespeichert
+    // und wird beim erneuten Öffnen weiterhin angezeigt (nicht nur direkt
+    // nach dem Erstellen).
+    renderMaEditCodeArea();
     updateMaEditStatus();
     updateMaEditAccessStatus();
     document.getElementById("ma-edit-modal").style.display = "flex";
@@ -1674,12 +1712,11 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error();
-      const codeDisplay = document.getElementById("ma-edit-code-display");
-      codeDisplay.textContent = data.code;
-      codeDisplay.style.display = "block";
-      if (data.account) maEditCurrent.accessCode = data.account.accessCode;
+      maEditCurrent.accessCode = data.code;
+      renderMaEditCodeArea();
       await loadMitarbeiterAccounts();
       maEditCurrent = mitarbeiterAccounts.find((a) => a.username === maEditCurrent.username) || maEditCurrent;
+      renderMaEditCodeArea();
       updateMaEditAccessStatus();
     } catch (_) {
       maEditShowError("Zugriffscode konnte nicht erstellt werden. Bitte erneut versuchen.");
@@ -1687,6 +1724,39 @@
       btn.disabled = false;
       btn.textContent = "🔑 Zugriffscode erstellen";
     }
+  }
+
+  async function maEditRevokeAccess() {
+    if (!maEditCurrent) return;
+    const username = maEditCurrent.username;
+    openConfirmModal(
+      `Zugriff für "${username}" wirklich einschränken? Monatsabos, Kunden und Einstellungen werden für diesen Mitarbeiter sofort wieder gesperrt.`,
+      async () => {
+        const btn = document.getElementById("ma-edit-revoke-access-btn");
+        btn.disabled = true;
+        btn.textContent = "Wird eingeschränkt …";
+        try {
+          const res = await fetch(WORKER_URL + "/api/admin/staff-accounts/revoke-access", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ username }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error();
+          maEditCurrent.extendedAccess = false;
+          delete maEditCurrent.accessCode;
+          renderMaEditCodeArea();
+          updateMaEditAccessStatus();
+          await loadMitarbeiterAccounts();
+          maEditCurrent = mitarbeiterAccounts.find((a) => a.username === username) || maEditCurrent;
+        } catch (_) {
+          maEditShowError("Zugriff konnte nicht eingeschränkt werden. Bitte erneut versuchen.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "🚫 Zugriff einschränken";
+        }
+      }
+    );
   }
 
   async function maEditToggleLock() {
@@ -1779,6 +1849,7 @@
   document.getElementById("ma-edit-lock-btn").addEventListener("click", maEditToggleLock);
   document.getElementById("ma-edit-regen-token-btn").addEventListener("click", maEditRegenToken);
   document.getElementById("ma-edit-gen-code-btn").addEventListener("click", maEditGenerateAccessCode);
+  document.getElementById("ma-edit-revoke-access-btn").addEventListener("click", maEditRevokeAccess);
   document.getElementById("ma-edit-delete-btn").addEventListener("click", maEditDelete);
   document.getElementById("ma-edit-save").addEventListener("click", maEditSaveUsername);
   document.getElementById("ma-edit-modal").addEventListener("click", (e) => {
