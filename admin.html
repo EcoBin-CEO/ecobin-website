@@ -140,6 +140,14 @@
   .cal-event.test-event{background:#fff5f5;box-shadow:0 0 0 2px #dc2626 inset;border:1px solid #dc2626}
   .cal-event.test-event:hover{box-shadow:0 0 0 2px #b91c1c inset,0 2px 8px rgba(220,38,38,.18)}
   .cal-test-label{display:inline-block;margin-left:4px;padding:1px 4px;border-radius:4px;background:#dc2626;color:#fff;font-size:9px;font-weight:900;letter-spacing:.04em;line-height:1.2}
+  .cal-event.staff-event{background:#fff8ef;box-shadow:0 0 0 2px #d97706 inset;border:1px solid #d97706}
+  .cal-event.staff-event:hover{box-shadow:0 0 0 2px #b45309 inset,0 2px 8px rgba(217,119,6,.18)}
+  .cal-staff-label{display:inline-block;margin-left:4px;padding:1px 4px;border-radius:4px;background:#d97706;color:#fff;font-size:9px;font-weight:900;letter-spacing:.04em;line-height:1.2}
+  .cal-staff-toggle-btn{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:6px}
+  .cal-staff-toggle-btn:hover{background:#f2f2ec}
+  .cal-staff-toggle-btn .cal-staff-toggle-dot{width:8px;height:8px;border-radius:50%;background:#d97706}
+  .cal-staff-toggle-btn.off{color:var(--muted);opacity:.65}
+  .cal-staff-toggle-btn.off .cal-staff-toggle-dot{background:#c7c9c2}
   .cal-event-top{display:flex;align-items:center;gap:5px;margin-bottom:3px}
   .cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
   .cal-name{font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -235,8 +243,10 @@
   .loading{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
   #ma-list .ma-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:8px}
   #ma-list .ma-item:last-child{margin-bottom:0}
+  #ma-list .ma-info{display:flex;flex-direction:column;gap:2px;min-width:0}
   #ma-list .ma-username{font-weight:800;color:var(--navy)}
   #ma-list .ma-token{font-size:11.5px;color:var(--muted);font-family:monospace}
+  #ma-list .ma-edit-btn{flex:0 0 auto}
   .placeholder{background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:60px 20px;text-align:center;color:var(--muted)}
   .placeholder b{display:block;color:var(--navy);font-size:16px;margin-bottom:6px}
 
@@ -588,6 +598,9 @@
             <button class="cal-nav-btn" id="cal-next">→</button>
           </div>
           <div class="cal-title" id="cal-title">–</div>
+          <button class="cal-staff-toggle-btn active" id="cal-staff-toggle" type="button">
+            <span class="cal-staff-toggle-dot"></span><span id="cal-staff-toggle-label">Mitarbeitertermine ausblenden</span>
+          </button>
           <div class="cal-view-toggle">
             <button class="cal-view-btn" data-cal-view="week">Woche</button>
             <button class="cal-view-btn active" data-cal-view="month">Monat</button>
@@ -710,6 +723,11 @@
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Offene Aufträge</h3></div>
             <div id="postfach-open"><div class="loading">Lädt …</div></div>
+          </div>
+
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><h3 class="pf-section-title" style="margin:0">Angenommene Aufträge von Mitarbeiter</h3></div>
+            <div id="postfach-staff-accepted"><div class="loading">Lädt …</div></div>
           </div>
 
           <div class="panel">
@@ -1251,8 +1269,6 @@
     </div>
   </div>
 </div>
-</div>
-        </div>
       </main>
 
       <main class="content" id="view-mitarbeiter-accounts" style="display:none">
@@ -1338,6 +1354,38 @@
     <div class="modal-actions">
       <button class="small-btn" id="ma-add-cancel">Abbrechen</button>
       <button class="small-btn modal-accept" id="ma-add-confirm">Fertig</button>
+    </div>
+  </div>
+</div>
+
+<div id="ma-edit-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Mitarbeiter Account bearbeiten</h3>
+    <p id="ma-edit-status" style="font-size:12.5px;color:var(--muted);margin:-6px 0 16px"></p>
+    <div class="field">
+      <label for="ma-edit-username-input">Benutzername</label>
+      <input type="text" id="ma-edit-username-input" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Token</label>
+      <div style="font-family:monospace;font-size:12px;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px" id="ma-edit-token-display"></div>
+      <button type="button" class="small-btn" id="ma-edit-regen-token-btn">🔄 Neues Token generieren</button>
+    </div>
+    <div class="field">
+      <label>Zugriffscode (Monatsabos, Kunden &amp; Einstellungen)</label>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 8px">Erstellt einen Code, den du diesem Mitarbeiter gibst. Gibt er ihn im Mitarbeiterbereich ein, werden „Monatsabos“, „Kunden“ und „Einstellungen“ für ihn freigeschaltet.</p>
+      <p id="ma-edit-access-status" style="font-size:12.5px;margin:0 0 8px"></p>
+      <div id="ma-edit-code-display" style="font-family:monospace;font-size:15px;letter-spacing:1px;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:none"></div>
+      <button type="button" class="small-btn" id="ma-edit-gen-code-btn">🔑 Zugriffscode erstellen</button>
+    </div>
+    <p id="ma-edit-error" style="color:var(--danger);font-size:12.5px;margin:6px 0 0;display:none"></p>
+    <div class="modal-actions" style="flex-wrap:wrap;justify-content:flex-start;margin-top:16px">
+      <button class="small-btn" id="ma-edit-lock-btn">Vorübergehend sperren</button>
+      <button class="small-btn modal-danger" id="ma-edit-delete-btn">Account löschen</button>
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="small-btn" id="ma-edit-cancel">Schließen</button>
+      <button class="small-btn modal-accept" id="ma-edit-save">Speichern</button>
     </div>
   </div>
 </div>
@@ -1561,9 +1609,184 @@
       return;
     }
     wrap.innerHTML = mitarbeiterAccounts.map((acc) =>
-      `<div class="ma-item"><span class="ma-username">${escapeHtml(acc.username)}</span><span class="ma-token">Token: ${escapeHtml(acc.token)}</span></div>`
+      `<div class="ma-item">` +
+        `<span class="ma-info"><span class="ma-username">${escapeHtml(acc.username)} ` +
+          `<span class="pill ${acc.locked ? "pill-pause" : "pill-ok"}">${acc.locked ? "Gesperrt" : "Aktiv"}</span></span>` +
+          `<span class="ma-token">Token: ${escapeHtml(acc.token)}</span></span>` +
+        `<button type="button" class="small-btn ma-edit-btn" data-username="${escapeHtml(acc.username)}">Bearbeiten</button>` +
+      `</div>`
     ).join("");
   }
+
+  let maEditCurrent = null;
+
+  function updateMaEditStatus() {
+    const locked = !!(maEditCurrent && maEditCurrent.locked);
+    document.getElementById("ma-edit-status").innerHTML =
+      `Status: <span class="pill ${locked ? "pill-pause" : "pill-ok"}">${locked ? "Vorübergehend gesperrt" : "Aktiv"}</span>`;
+    document.getElementById("ma-edit-lock-btn").textContent = locked ? "Freischalten" : "Vorübergehend sperren";
+  }
+
+  function maEditShowError(msg) {
+    const errorEl = document.getElementById("ma-edit-error");
+    errorEl.textContent = msg;
+    errorEl.style.display = "block";
+  }
+
+  function updateMaEditAccessStatus() {
+    const statusEl = document.getElementById("ma-edit-access-status");
+    if (!statusEl) return;
+    const unlocked = !!(maEditCurrent && maEditCurrent.extendedAccess);
+    statusEl.innerHTML = "Status: <span class=\"pill " + (unlocked ? "pill-ok" : "pill-done") + "\">" +
+      (unlocked ? "Freigeschaltet" : "Noch nicht freigeschaltet") + "</span>";
+  }
+
+  function openMaEditModal(username) {
+    const acc = mitarbeiterAccounts.find((a) => a.username === username);
+    if (!acc) return;
+    maEditCurrent = acc;
+    document.getElementById("ma-edit-username-input").value = acc.username;
+    document.getElementById("ma-edit-token-display").textContent = acc.token;
+    document.getElementById("ma-edit-error").style.display = "none";
+    const codeDisplay = document.getElementById("ma-edit-code-display");
+    codeDisplay.style.display = "none";
+    codeDisplay.textContent = "";
+    updateMaEditStatus();
+    updateMaEditAccessStatus();
+    document.getElementById("ma-edit-modal").style.display = "flex";
+  }
+
+  function closeMaEditModal() {
+    document.getElementById("ma-edit-modal").style.display = "none";
+    maEditCurrent = null;
+  }
+
+  async function maEditGenerateAccessCode() {
+    if (!maEditCurrent) return;
+    const btn = document.getElementById("ma-edit-gen-code-btn");
+    btn.disabled = true;
+    btn.textContent = "Wird erstellt …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts/access-code", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: maEditCurrent.username }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error();
+      const codeDisplay = document.getElementById("ma-edit-code-display");
+      codeDisplay.textContent = data.code;
+      codeDisplay.style.display = "block";
+      if (data.account) maEditCurrent.accessCode = data.account.accessCode;
+      await loadMitarbeiterAccounts();
+      maEditCurrent = mitarbeiterAccounts.find((a) => a.username === maEditCurrent.username) || maEditCurrent;
+      updateMaEditAccessStatus();
+    } catch (_) {
+      maEditShowError("Zugriffscode konnte nicht erstellt werden. Bitte erneut versuchen.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🔑 Zugriffscode erstellen";
+    }
+  }
+
+  async function maEditToggleLock() {
+    if (!maEditCurrent) return;
+    const newLocked = !maEditCurrent.locked;
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+        method: "PATCH",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: maEditCurrent.username, locked: newLocked }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error();
+      maEditCurrent.locked = newLocked;
+      updateMaEditStatus();
+      await loadMitarbeiterAccounts();
+      maEditCurrent = mitarbeiterAccounts.find((a) => a.username === maEditCurrent.username) || maEditCurrent;
+    } catch (_) {
+      maEditShowError(newLocked ? "Sperren fehlgeschlagen. Bitte erneut versuchen." : "Freischalten fehlgeschlagen. Bitte erneut versuchen.");
+    }
+  }
+
+  async function maEditRegenToken() {
+    if (!maEditCurrent) return;
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+        method: "PUT",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: maEditCurrent.username, regenerateToken: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error();
+      maEditCurrent.token = data.account.token;
+      document.getElementById("ma-edit-token-display").textContent = data.account.token;
+      await loadMitarbeiterAccounts();
+    } catch (_) {
+      maEditShowError("Neues Token konnte nicht erstellt werden. Bitte erneut versuchen.");
+    }
+  }
+
+  function maEditDelete() {
+    if (!maEditCurrent) return;
+    const username = maEditCurrent.username;
+    openConfirmModal(`Mitarbeiter Account "${username}" wirklich löschen?`, async () => {
+      try {
+        const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ username }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error();
+        closeMaEditModal();
+        await loadMitarbeiterAccounts();
+      } catch (_) {
+        maEditShowError("Löschen fehlgeschlagen. Bitte erneut versuchen.");
+      }
+    });
+  }
+
+  async function maEditSaveUsername() {
+    if (!maEditCurrent) return;
+    const newUsername = document.getElementById("ma-edit-username-input").value.trim();
+    if (!newUsername) { maEditShowError("Bitte einen Benutzernamen eingeben."); return; }
+    if (newUsername === maEditCurrent.username) { closeMaEditModal(); return; }
+    try {
+      const res = await fetch(WORKER_URL + "/api/admin/staff-accounts", {
+        method: "PUT",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: maEditCurrent.username, newUsername }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        maEditShowError(data.error === "Dieser Benutzername existiert bereits" ? "Dieser Benutzername existiert bereits." : "Speichern fehlgeschlagen. Bitte erneut versuchen.");
+        return;
+      }
+      closeMaEditModal();
+      await loadMitarbeiterAccounts();
+    } catch (_) {
+      maEditShowError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
+    }
+  }
+
+  document.getElementById("ma-list").addEventListener("click", (e) => {
+    const btn = e.target.closest(".ma-edit-btn");
+    if (!btn) return;
+    openMaEditModal(btn.getAttribute("data-username"));
+  });
+  document.getElementById("ma-edit-cancel").addEventListener("click", closeMaEditModal);
+  document.getElementById("ma-edit-lock-btn").addEventListener("click", maEditToggleLock);
+  document.getElementById("ma-edit-regen-token-btn").addEventListener("click", maEditRegenToken);
+  document.getElementById("ma-edit-gen-code-btn").addEventListener("click", maEditGenerateAccessCode);
+  document.getElementById("ma-edit-delete-btn").addEventListener("click", maEditDelete);
+  document.getElementById("ma-edit-save").addEventListener("click", maEditSaveUsername);
+  document.getElementById("ma-edit-modal").addEventListener("click", (e) => {
+    if (e.target.id === "ma-edit-modal") closeMaEditModal();
+  });
+  document.getElementById("ma-edit-username-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") maEditSaveUsername();
+  });
 
   function openMaAddModal() {
     document.getElementById("ma-username-input").value = "";
@@ -1649,6 +1872,7 @@
     if (tab === "abos") renderAbos();
     if (tab === "kunden") renderKundenTable();
     if (tab === "einstellungen") renderEinstellungen();
+    if (tab === "mitarbeiter-accounts") loadMitarbeiterAccounts();
   }
 
   // ---------- Einstellungen ----------
@@ -1669,6 +1893,7 @@
       vergangeneTermine: true,
       abgelehnteBuchungen: false,
       erinnerungTage: 1,
+      mitarbeitertermine: true,
     },
   };
   function loadSettings() {
@@ -2106,12 +2331,14 @@
   function calEventHtml(b, todayI) {
     const st = statusInfo(b, todayI);
     const isTest = isLocalTestBooking(b);
-    const dotColor = isTest ? "#dc2626" : ({ "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)");
+    const isStaff = !isTest && !!(b.decidedBy && b.decidedBy.type === "staff");
+    const dotColor = isTest ? "#dc2626" : isStaff ? "#d97706" : ({ "pill-new": "#1b5fa8", "pill-ok": "var(--green-dark)", "pill-done": "var(--muted)", "pill-rej": "var(--danger)" }[st.cls] || "var(--muted)");
     const testLabel = isTest ? '<span class="cal-test-label">' + (b.abo ? 'TEST-ABO' : 'TEST') + '</span>' : '';
-    const eventClass = isTest ? 'cal-event test-event' : 'cal-event';
+    const staffLabel = isStaff ? '<span class="cal-staff-label" title="Angenommen von: ' + escapeHtml(b.decidedBy.username || "Mitarbeiter") + '">MITARBEITER</span>' : '';
+    const eventClass = isTest ? 'cal-event test-event' : isStaff ? 'cal-event staff-event' : 'cal-event';
     return (
       '<div class="' + eventClass + '" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
-      '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + testLabel + "</span></div>" +
+      '<div class="cal-event-top"><span class="cal-dot" style="background:' + dotColor + '"></span><span class="cal-name">' + escapeHtml(b.name || "Unbekannt") + testLabel + staffLabel + "</span></div>" +
       '<div class="cal-event-bottom"><span class="cal-price">' + formatEuro(b.amount) + '</span><span class="cal-status" style="color:' + dotColor + '">' + (isTest ? 'Testbuchung' : st.label) + "</span></div>" +
       "</div>"
     );
@@ -2125,14 +2352,25 @@
     titleEl.textContent = calTitleText();
     document.querySelectorAll(".cal-view-btn").forEach((b) => b.classList.toggle("active", b.dataset.calView === calView));
 
-    const todayI = todayIso();
     const calendarSettings = getCalendarSettings();
+    const staffToggleBtn = document.getElementById("cal-staff-toggle");
+    const staffToggleLabel = document.getElementById("cal-staff-toggle-label");
+    if (staffToggleBtn) {
+      staffToggleBtn.classList.toggle("active", calendarSettings.mitarbeitertermine);
+      staffToggleBtn.classList.toggle("off", !calendarSettings.mitarbeitertermine);
+    }
+    if (staffToggleLabel) {
+      staffToggleLabel.textContent = calendarSettings.mitarbeitertermine ? "Mitarbeitertermine ausblenden" : "Mitarbeitertermine einblenden";
+    }
+
+    const todayI = todayIso();
     const byDate = {};
     bookings.filter((b) => {
       if (!b.date) return false;
       if (b.status === "rejected" && !calendarSettings.abgelehnteBuchungen) return false;
       if (b.status === "cancelled" && !calendarSettings.abgelehnteBuchungen) return false;
       if (!calendarSettings.vergangeneTermine && b.date < todayI) return false;
+      if (!calendarSettings.mitarbeitertermine && b.decidedBy && b.decidedBy.type === "staff") return false;
       return true;
     }).forEach((b) => {
       (byDate[b.date] = byDate[b.date] || []).push(b);
@@ -2185,6 +2423,14 @@
       renderCalendar();
     });
   });
+  const calStaffToggleBtn = document.getElementById("cal-staff-toggle");
+  if (calStaffToggleBtn) {
+    calStaffToggleBtn.addEventListener("click", () => {
+      const current = getCalendarSettings();
+      saveCalendarSettings(Object.assign({}, current, { mitarbeitertermine: !current.mitarbeitertermine }));
+      renderCalendar();
+    });
+  }
 
   function aboStatusInfo(b) {
     if (b.status === "rejected") return { label: "Gekündigt", cls: "pill-rej" };
@@ -2273,6 +2519,9 @@
     const isTest = isLocalTestBooking(b);
     const cardClass = isTest ? "mail-card test-booking-card" : "mail-card";
     const testLabel = isTest ? '<span class="test-booking-label">TESTBUCHUNG</span>' : "";
+    const staffRow = (b.decidedBy && b.decidedBy.type === "staff")
+      ? '<div class="mail-row"><span class="k">Angenommen von</span><span class="v">' + escapeHtml(b.decidedBy.username || "Mitarbeiter") + "</span></div>"
+      : "";
     return (
       '<div class="' + cardClass + '" data-uid="' + escapeHtml(String(b._uid != null ? b._uid : (b.id != null ? b.id : ""))) + '">' +
       "<h4>" + escapeHtml(b.name || "Unbekannt") + testLabel + "</h4>" +
@@ -2280,6 +2529,7 @@
       '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
       '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
       '<div class="mail-row"><span class="k">Buchungsdatum</span><span class="v">' + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</span></div>" +
+      staffRow +
       '<div class="mail-row"><span class="k">Status</span><span class="pill ' + st.cls + '">' + st.label + "</span></div>" +
       "</div>"
     );
@@ -2331,6 +2581,13 @@
       .slice()
       .sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || ""));
     renderCards("postfach-open", open, todayI, "Keine offenen Aufträge.");
+
+    // Vom Mitarbeiter angenommene Aufträge – eigener Bereich zur Übersicht
+    const staffAccepted = list
+      .filter((b) => b.status === "accepted" && b.decidedBy && b.decidedBy.type === "staff")
+      .slice()
+      .sort((a, c) => (c.decidedAt || "").localeCompare(a.decidedAt || ""));
+    renderCards("postfach-staff-accepted", staffAccepted, todayI, "Noch keine Aufträge von Mitarbeitern angenommen.");
 
     // Zähler für die Filter-Tabs
     const counts = {
@@ -2415,6 +2672,7 @@
         document.getElementById("notifications").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
         document.getElementById("recent-bookings").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
         document.getElementById("postfach-open").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+        document.getElementById("postfach-staff-accepted").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
         document.getElementById("postfach-history").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
         document.getElementById("abo-table").innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
       }

@@ -69,6 +69,61 @@
   header.topbar h1{font-size:19px;margin:0}
   main.content{padding:26px 28px 50px;max-width:1180px}
 
+  /* ---------- Postfach (Buchungsanfragen) – Look wie in der Admin-Verwaltung ---------- */
+  .greet h2{font-size:23px;margin:0 0 4px}
+  .greet p{color:var(--muted);margin:0 0 22px;font-size:13.5px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+  .panel-head h3{margin:0;font-size:15.5px}
+  .pf-section-title{font-size:15.5px;margin:0 0 12px;font-weight:800}
+  .refresh-btn{border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:20px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy)}
+  .refresh-btn:hover{background:#f2f2ec}
+  .refresh-btn:disabled{opacity:.6;cursor:default}
+  .empty-state{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
+  .loading{color:var(--muted);text-align:center;padding:34px 10px;font-size:13px}
+  .mail-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:14px}
+  .mail-card h4{margin:0 0 10px;font-size:14.5px}
+  .mail-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .mail-row:last-child{border-bottom:0}
+  .mail-row .k{color:var(--muted)}
+  .mail-row .v{font-weight:700;color:var(--navy)}
+  .mail-row .v.price{color:var(--green-dark)}
+  .mail-card-actions{margin-top:12px;text-align:right}
+  .small-btn{border:1px solid var(--line);background:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--navy)}
+  .small-btn:hover{background:#f2f2ec}
+  .small-btn:disabled{opacity:.6;cursor:default}
+  .small-btn.modal-accept{background:var(--green);border-color:var(--green);color:#fff}
+  .small-btn.modal-accept:hover{background:var(--green-dark)}
+  .small-btn.ma-hide-btn{color:#8a8a80}
+  .small-btn.ma-hide-btn:hover{background:#f2f2ec}
+  .pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;white-space:nowrap;display:inline-block}
+  .pill-new{background:#e6f0fb;color:#1b5fa8}
+  .pill-ok{background:var(--ok-bg);color:var(--green-dark)}
+  .pill-done{background:#eef0ee;color:var(--muted)}
+  .pill-rej{background:var(--danger-bg);color:var(--danger)}
+  .pill-pause{background:#fdf3e0;color:#9a6700}
+  .pf-tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .pf-tab{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;color:var(--navy);cursor:pointer}
+  .pf-tab:hover{background:#f2f2ec}
+  .pf-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .pf-tab .cnt{background:#eef0ee;color:var(--navy);border-radius:9px;padding:1px 8px;font-size:11px;font-weight:800}
+  .pf-tab.active .cnt{background:#ffffff2e;color:#fff}
+  .mail-card.clickable{cursor:pointer}
+  .mail-card.clickable:hover{box-shadow:0 0 0 1px var(--navy-2) inset}
+  .modal-overlay{position:fixed;inset:0;background:rgba(9,45,75,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px}
+  .modal-box{background:#fff;border-radius:12px;padding:24px 26px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:86vh;overflow-y:auto}
+  .modal-box h3{margin:0 0 10px;font-size:17px;color:var(--navy)}
+  .sb-badge{background:var(--lime);color:var(--green-dark);font-size:10.5px;font-weight:800;border-radius:9px;padding:1px 7px;margin-left:auto}
+
+  /* ---------- Gesperrte Bereiche (Monatsabos / Kunden / Einstellungen) ---------- */
+  .locked{background:#15191d;border-radius:16px;min-height:60vh;display:flex;align-items:center;justify-content:center}
+  .locked-inner{text-align:center}
+  .locked-icon{font-size:30px;margin-bottom:14px;opacity:.7}
+  .locked-title{color:#fff;font-size:16px;font-weight:700;margin:0 0 6px}
+  .locked-msg{color:#9aa0a6;font-size:13px;margin:0 0 20px}
+  .locked-code-btn{padding:12px 22px;border:0;border-radius:8px;background:var(--green);color:#fff;font-weight:700;font-size:14px;cursor:pointer}
+  .locked-code-btn:hover{background:var(--green-dark)}
+
   @media(max-width:760px){
     #login-screen{flex-direction:column}
     .login-left{min-height:220px;padding:24px}
@@ -126,7 +181,11 @@
         </div>
       </div>
       <nav class="sb-nav">
-        <button class="sb-item active" type="button"><span class="ic">📊</span><span>Dashboard</span></button>
+        <button class="sb-item active" type="button" data-tab="dashboard"><span class="ic">📊</span><span>Dashboard</span></button>
+        <button class="sb-item" type="button" data-tab="postfach"><span class="ic">📮</span><span>Postfach</span><span class="sb-badge" id="pf-badge" style="display:none">0</span></button>
+        <button class="sb-item" type="button" data-tab="monatsabos"><span class="ic">💳</span><span>Monatsabos</span></button>
+        <button class="sb-item" type="button" data-tab="kunden"><span class="ic">👥</span><span>Kunden</span></button>
+        <button class="sb-item" type="button" data-tab="einstellungen"><span class="ic">⚙️</span><span>Einstellungen</span></button>
       </nav>
       <div class="sb-footer">
         <div class="avatar" id="user-avatar">MA</div>
@@ -139,13 +198,90 @@
     </aside>
     <div class="main-wrap">
       <header class="topbar">
-        <h1>Dashboard</h1>
+        <h1 id="page-title">Dashboard</h1>
       </header>
-      <main class="content">
-        <!-- Absichtlich noch ohne Inhalt: kein Kalender, kein Postfach,
-             keine Abos, keine Kunden, keine Einstellungen. Kommt später. -->
+
+      <main class="content" id="view-dashboard">
+        <!-- Absichtlich noch ohne Inhalt: kein Kalender, kein Postfach. Kommt später. -->
+      </main>
+
+      <main class="content" id="view-postfach" style="display:none">
+        <div class="greet">
+          <h2>Postfach</h2>
+          <p>Buchungsanfragen im Überblick.</p>
+        </div>
+        <div class="pf-tabs" id="pf-tabs">
+          <button class="pf-tab active" type="button" data-pf-view="open">Offen</button>
+          <button class="pf-tab" type="button" data-pf-view="accepted">Angenommen</button>
+          <button class="pf-tab" type="button" data-pf-view="hidden">Ausgeblendet</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3 class="pf-section-title" id="pf-panel-title" style="margin:0">Buchungsanfragen</h3>
+            <button class="refresh-btn" id="pf-refresh-btn" type="button">🔄 Aktualisieren</button>
+          </div>
+          <div id="postfach-open"><div class="loading">Lädt …</div></div>
+        </div>
+      </main>
+
+      <main class="content" id="view-monatsabos" style="display:none">
+        <div class="locked" id="locked-monatsabos">
+          <div class="locked-inner">
+            <div class="locked-icon">🔒</div>
+            <div class="locked-title">Kein Zugriff</div>
+            <div class="locked-msg">Für diesen Bereich brauchst du einen Freischaltcode.<br>Bitte wende dich an den Admin.</div>
+            <button class="locked-code-btn" type="button" data-locked-btn="monatsabos">Code eingeben</button>
+          </div>
+        </div>
+      </main>
+
+      <main class="content" id="view-kunden" style="display:none">
+        <div class="locked" id="locked-kunden">
+          <div class="locked-inner">
+            <div class="locked-icon">🔒</div>
+            <div class="locked-title">Kein Zugriff</div>
+            <div class="locked-msg">Für diesen Bereich brauchst du einen Freischaltcode.<br>Bitte wende dich an den Admin.</div>
+            <button class="locked-code-btn" type="button" data-locked-btn="kunden">Code eingeben</button>
+          </div>
+        </div>
+      </main>
+
+      <main class="content" id="view-einstellungen" style="display:none">
+        <div class="locked" id="locked-einstellungen">
+          <div class="locked-inner">
+            <div class="locked-icon">🔒</div>
+            <div class="locked-title">Kein Zugriff</div>
+            <div class="locked-msg">Für diesen Bereich brauchst du einen Freischaltcode.<br>Bitte wende dich an den Admin.</div>
+            <button class="locked-code-btn" type="button" data-locked-btn="einstellungen">Code eingeben</button>
+          </div>
+        </div>
       </main>
     </div>
+  </div>
+</div>
+
+<div id="access-code-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Zugriffscode eingeben</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 16px">Den Code bekommst du von deinem Admin. Er schaltet Monatsabos, Kunden und Einstellungen für dich frei.</p>
+    <div class="field">
+      <label for="access-code-input">Zugriffscode</label>
+      <input id="access-code-input" type="text" autocomplete="off" placeholder="z. B. AB3DEFGH" style="text-transform:uppercase">
+    </div>
+    <p id="access-code-error" style="color:var(--danger);font-size:12.5px;margin:-8px 0 14px;display:none"></p>
+    <div class="modal-actions" style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="small-btn" type="button" id="access-code-cancel">Abbrechen</button>
+      <button class="small-btn modal-accept" type="button" id="access-code-confirm">Freischalten</button>
+    </div>
+  </div>
+</div>
+
+<div id="booking-detail-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3 id="bd-title">Buchung</h3>
+    <span class="pill" id="bd-status"></span>
+    <div id="bd-fields"></div>
+    <button class="small-btn" id="bd-close-btn" style="width:100%;margin-top:14px;justify-content:center;text-align:center">Schließen</button>
   </div>
 </div>
 
@@ -180,13 +316,288 @@
     loginBtn.textContent = "Anmelden";
   }
 
+  // Wird nach dem Login (bzw. bei automatischem Wieder-Einloggen über das
+  // Sitzungs-Token) anhand von "extendedAccess" gesetzt: true, sobald der
+  // Mitarbeiter irgendwann erfolgreich einen Zugriffscode eingelöst hat.
+  // Steuert nur, ob die "Kein Zugriff"-Sperre in Monatsabos/Kunden/
+  // Einstellungen entfernt wird - die Bereiche bleiben absichtlich inhaltlich
+  // leer (kommt später).
+  const EXTENDED_ACCESS_KEY = "ecobin_mitarbeiter_extended_access";
+  let extendedAccess = sessionStorage.getItem(EXTENDED_ACCESS_KEY) === "1";
+
+  function applyExtendedAccess() {
+    ["monatsabos", "kunden", "einstellungen"].forEach((tab) => {
+      const lockedEl = document.getElementById("locked-" + tab);
+      if (lockedEl) lockedEl.style.display = extendedAccess ? "none" : "flex";
+    });
+  }
+
   function showApp() {
     loginScreen.style.display = "none";
     app.style.display = "block";
     const displayName = sessionStorage.getItem(USER_KEY) || "Mitarbeiter";
     document.getElementById("user-avatar").textContent = initialsOf(displayName);
     document.getElementById("user-name").textContent = displayName;
+    applyExtendedAccess();
+    loadPostfach();
   }
+
+  const TAB_TITLES = {
+    dashboard: "Dashboard",
+    postfach: "Postfach",
+    monatsabos: "Monatsabos",
+    kunden: "Kunden",
+    einstellungen: "Einstellungen",
+  };
+  const pageTitle = document.getElementById("page-title");
+  document.querySelectorAll(".sb-item[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-tab");
+      document.querySelectorAll(".sb-item[data-tab]").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.querySelectorAll("main.content[id^='view-']").forEach((view) => { view.style.display = "none"; });
+      const target = document.getElementById("view-" + tab);
+      if (target) target.style.display = "block";
+      pageTitle.textContent = TAB_TITLES[tab] || "";
+      if (tab === "postfach") loadPostfach();
+    });
+  });
+  function escapeHtml(str) {
+    return String(str == null ? "" : str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function formatDateDe(d) {
+    if (!d) return "–";
+    try { return new Date(d + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }); }
+    catch (_) { return d; }
+  }
+  function formatEuro(n) {
+    if (n === null || n === undefined || isNaN(n)) return "–";
+    return Number(n).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  }
+
+  let pfView = "open";
+  let currentPfBookings = [];
+  const PF_PANEL_TITLES = { open: "Buchungsanfragen", accepted: "Von mir angenommen", hidden: "Von mir ausgeblendet" };
+  const PF_EMPTY_TEXTS = {
+    open: "Keine offenen Buchungsanfragen.",
+    accepted: "Du hast bisher keine Buchungsanfragen angenommen.",
+    hidden: "Du hast bisher keine Buchungsanfragen ausgeblendet.",
+  };
+
+  function fieldVal(b, keys, fallback) {
+    for (const k of keys) {
+      const v = b[k];
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return fallback !== undefined ? fallback : "–";
+  }
+  function formatExtras(b) {
+    if (Array.isArray(b.extras) && b.extras.length) return escapeHtml(b.extras.join(", "));
+    if (typeof b.extras === "string" && b.extras) return escapeHtml(b.extras);
+    return "–";
+  }
+  function formatAddress(b) {
+    const strasse = fieldVal(b, ["address", "strasse", "street"], "");
+    const plz = fieldVal(b, ["plz", "zip", "postcode"], "");
+    const ort = fieldVal(b, ["ort", "city"], "");
+    const zeile2 = [plz, ort].filter((x) => x && x !== "–").join(" ");
+    const parts = [strasse, zeile2].filter((x) => x && x !== "–");
+    return parts.length ? escapeHtml(parts.join(", ")) : "–";
+  }
+
+  function mailCardHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    return (
+      '<div class="mail-card" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsdatum</span><span class="v">' + formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Status</span><span class="pill pill-new">Neu</span></div>' +
+      '<div class="mail-card-actions">' +
+      '<button type="button" class="small-btn modal-accept ma-accept-btn" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">Annehmen</button>' +
+      '<button type="button" class="small-btn ma-hide-btn" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">Ausblenden</button>' +
+      '</div>' +
+      "</div>"
+    );
+  }
+
+  // Karte für "Angenommen": komplette Karte klickbar, öffnet die Detailansicht
+  // mit allen Formulardaten der Buchung (kein Annehmen/Ausblenden nötig).
+  function acceptedCardHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    return (
+      '<div class="mail-card clickable" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
+      '<div class="mail-row"><span class="k">Status</span><span class="pill pill-ok">Angenommen</span></div>' +
+      "</div>"
+    );
+  }
+
+  // Karte für "Ausgeblendet": zeigt zusätzlich, ob die Anfrage inzwischen
+  // (von jemand anderem) angenommen wurde oder noch offen ist - ist sie noch
+  // offen, gibt es einen Button, um sie doch noch anzunehmen.
+  function hiddenCardHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    const stillOpen = b.status === "pending";
+    const statusPill = stillOpen
+      ? '<span class="pill pill-new">Noch offen</span>'
+      : b.status === "accepted"
+        ? '<span class="pill pill-ok">Bereits angenommen</span>'
+        : b.status === "rejected"
+          ? '<span class="pill pill-rej">Bereits abgelehnt</span>'
+          : '<span class="pill pill-done">' + escapeHtml(b.status || "–") + '</span>';
+    return (
+      '<div class="mail-card" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">' +
+      "<h4>" + escapeHtml(b.name || "Unbekannt") + "</h4>" +
+      '<div class="mail-row"><span class="k">Reinigungstermin</span><span class="v">' + formatDateDe(b.date) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Gesamtpreis</span><span class="v price">' + formatEuro(b.amount) + "</span></div>" +
+      '<div class="mail-row"><span class="k">Buchungsart</span><span class="v">' + buchungsart + "</span></div>" +
+      '<div class="mail-row"><span class="k">Status</span>' + statusPill + "</div>" +
+      (stillOpen
+        ? '<div class="mail-card-actions"><button type="button" class="small-btn modal-accept ma-accept-btn" data-uid="' + escapeHtml(String(b.id != null ? b.id : "")) + '">Doch annehmen</button></div>'
+        : "") +
+      "</div>"
+    );
+  }
+
+  function bdFieldsHtml(b) {
+    const buchungsart = b.abo ? "Monatsabo" : "Einmalzahlung";
+    const rows = [
+      ["E-Mail", escapeHtml(fieldVal(b, ["email"], "–"))],
+      ["Adresse", formatAddress(b)],
+      ["Reinigungstermin", formatDateDe(b.date)],
+      ["Buchungsdatum", formatDateDe(b.createdAt ? String(b.createdAt).slice(0, 10) : null)],
+      ["Buchungsart", buchungsart],
+      ["Gesamtpreis", formatEuro(b.amount)],
+      ["Tonnen", b.binTypes ? escapeHtml(String(b.binTypes)) : "–"],
+      ["Anzahl der Tonnen", b.bins != null ? escapeHtml(String(b.bins)) : "–"],
+      ["Extras", formatExtras(b)],
+      ["Zusätzliche Informationen", escapeHtml(fieldVal(b, ["note"], "–"))],
+    ];
+    return rows.map(([k, v]) => '<div class="mail-row"><span class="k">' + k + '</span><span class="v">' + v + "</span></div>").join("");
+  }
+
+  function openBookingDetail(uid) {
+    const b = currentPfBookings.find((x) => String(x.id != null ? x.id : "") === String(uid));
+    if (!b) return;
+    document.getElementById("bd-title").textContent = b.name || "Buchung";
+    const statusEl = document.getElementById("bd-status");
+    statusEl.className = "pill pill-ok";
+    statusEl.textContent = "Angenommen";
+    document.getElementById("bd-fields").innerHTML = bdFieldsHtml(b);
+    document.getElementById("booking-detail-modal").style.display = "flex";
+  }
+  document.getElementById("bd-close-btn").addEventListener("click", () => {
+    document.getElementById("booking-detail-modal").style.display = "none";
+  });
+
+  async function acceptBooking(id, btn) {
+    btn.disabled = true;
+    btn.textContent = "Wird angenommen …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/bookings/" + encodeURIComponent(id) + "/accept", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) throw new Error();
+      await loadPostfach();
+    } catch (_) {
+      btn.disabled = false;
+      btn.textContent = "Fehler – erneut versuchen";
+    }
+  }
+  async function hideBooking(id, btn) {
+    btn.disabled = true;
+    btn.textContent = "Wird ausgeblendet …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/bookings/" + encodeURIComponent(id) + "/hide", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) throw new Error();
+      await loadPostfach();
+    } catch (_) {
+      btn.disabled = false;
+      btn.textContent = "Fehler – erneut versuchen";
+    }
+  }
+  document.getElementById("postfach-open").addEventListener("click", (e) => {
+    const acceptBtn = e.target.closest(".ma-accept-btn");
+    if (acceptBtn) { acceptBooking(acceptBtn.getAttribute("data-uid"), acceptBtn); return; }
+    const hideBtn = e.target.closest(".ma-hide-btn");
+    if (hideBtn) { hideBooking(hideBtn.getAttribute("data-uid"), hideBtn); return; }
+    const card = e.target.closest(".mail-card.clickable");
+    if (card) { openBookingDetail(card.getAttribute("data-uid")); return; }
+  });
+
+  document.querySelectorAll("#pf-tabs .pf-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pfView = btn.getAttribute("data-pf-view");
+      document.querySelectorAll("#pf-tabs .pf-tab").forEach((b) => b.classList.toggle("active", b === btn));
+      loadPostfach();
+    });
+  });
+
+  // Der Badge in der Seitenleiste zählt immer die OFFENEN Buchungsanfragen,
+  // unabhängig davon, welcher Postfach-Tab gerade angezeigt wird.
+  async function refreshPfBadge() {
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/bookings?view=open", {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      if (!res.ok) return;
+      const list = await res.json().catch(() => []);
+      const openBookings = Array.isArray(list) ? list : [];
+      const badge = document.getElementById("pf-badge");
+      if (badge) {
+        badge.textContent = openBookings.length;
+        badge.style.display = openBookings.length > 0 ? "inline-block" : "none";
+      }
+      if (pfView === "open") currentPfBookings = openBookings;
+    } catch (_) { /* Badge bleibt unverändert, kein kritischer Fehler */ }
+  }
+
+  async function loadPostfach() {
+    const btn = document.getElementById("pf-refresh-btn");
+    const wrap = document.getElementById("postfach-open");
+    const titleEl = document.getElementById("pf-panel-title");
+    if (titleEl) titleEl.textContent = PF_PANEL_TITLES[pfView] || "Buchungsanfragen";
+    btn.disabled = true; btn.textContent = "Lädt …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/bookings?view=" + encodeURIComponent(pfView), {
+        headers: { "Authorization": "Bearer " + token },
+      });
+      if (!res.ok) throw new Error();
+      const list = await res.json().catch(() => []);
+      const pfBookings = Array.isArray(list) ? list : [];
+      currentPfBookings = pfBookings;
+      const cardFn = pfView === "accepted" ? acceptedCardHtml : pfView === "hidden" ? hiddenCardHtml : mailCardHtml;
+      wrap.innerHTML = pfBookings.length
+        ? pfBookings.slice().sort((a, c) => (c.createdAt || "").localeCompare(a.createdAt || "")).map(cardFn).join("")
+        : '<div class="empty-state">' + PF_EMPTY_TEXTS[pfView] + '</div>';
+      if (pfView === "open") {
+        const badge = document.getElementById("pf-badge");
+        if (badge) {
+          badge.textContent = pfBookings.length;
+          badge.style.display = pfBookings.length > 0 ? "inline-block" : "none";
+        }
+      } else {
+        await refreshPfBadge();
+      }
+    } catch (_) {
+      wrap.innerHTML = '<div class="empty-state">Fehler beim Laden der Daten.</div>';
+    } finally {
+      btn.disabled = false; btn.textContent = "🔄 Aktualisieren";
+    }
+  }
+  document.getElementById("pf-refresh-btn").addEventListener("click", loadPostfach);
 
   loginBtn.addEventListener("click", async () => {
     const user = userInput.value.trim();
@@ -205,12 +616,18 @@
       if (res.ok && data.ok) {
         sessionStorage.setItem(TOKEN_KEY, token);
         sessionStorage.setItem(USER_KEY, user || "Mitarbeiter");
+        extendedAccess = !!data.extendedAccess;
+        sessionStorage.setItem(EXTENDED_ACCESS_KEY, extendedAccess ? "1" : "0");
         showApp();
+      } else if (data && data.error === "Account gesperrt") {
+        throw new Error("locked");
       } else {
         throw new Error("unauthorized");
       }
     } catch (e) {
-      loginError.textContent = "Anmeldung fehlgeschlagen. Bitte Benutzername/Token prüfen.";
+      loginError.textContent = e && e.message === "locked"
+        ? "Dieser Account ist vorübergehend gesperrt. Bitte wende dich an die Verwaltung."
+        : "Anmeldung fehlgeschlagen. Bitte Benutzername/Token prüfen.";
       loginError.style.display = "block";
       loginBtn.disabled = false;
       loginBtn.textContent = "Anmelden";
@@ -221,9 +638,71 @@
   document.getElementById("logout-btn").addEventListener("click", () => {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(EXTENDED_ACCESS_KEY);
     token = "";
     showLogin(false);
   });
+
+  /* ---------- Zugriffscode einlösen (Monatsabos / Kunden / Einstellungen) ---------- */
+  const accessCodeModal = document.getElementById("access-code-modal");
+  const accessCodeInput = document.getElementById("access-code-input");
+  const accessCodeError = document.getElementById("access-code-error");
+  const accessCodeConfirm = document.getElementById("access-code-confirm");
+
+  function openAccessCodeModal() {
+    accessCodeInput.value = "";
+    accessCodeError.style.display = "none";
+    accessCodeModal.style.display = "flex";
+    accessCodeInput.focus();
+  }
+  function closeAccessCodeModal() {
+    accessCodeModal.style.display = "none";
+  }
+
+  async function confirmAccessCode() {
+    const code = accessCodeInput.value.trim();
+    if (!code) {
+      accessCodeError.textContent = "Bitte einen Code eingeben.";
+      accessCodeError.style.display = "block";
+      return;
+    }
+    accessCodeError.style.display = "none";
+    accessCodeConfirm.disabled = true;
+    accessCodeConfirm.textContent = "Wird geprüft …";
+    try {
+      const res = await fetch(WORKER_URL + "/api/staff/access-code", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        accessCodeError.textContent = "Code ungültig. Bitte beim Admin nachfragen.";
+        accessCodeError.style.display = "block";
+        return;
+      }
+      extendedAccess = true;
+      sessionStorage.setItem(EXTENDED_ACCESS_KEY, "1");
+      applyExtendedAccess();
+      closeAccessCodeModal();
+    } catch (_) {
+      accessCodeError.textContent = "Freischalten fehlgeschlagen. Bitte erneut versuchen.";
+      accessCodeError.style.display = "block";
+    } finally {
+      accessCodeConfirm.disabled = false;
+      accessCodeConfirm.textContent = "Freischalten";
+    }
+  }
+
+  document.querySelectorAll("[data-locked-btn]").forEach((btn) => {
+    btn.addEventListener("click", openAccessCodeModal);
+  });
+  document.getElementById("access-code-cancel").addEventListener("click", closeAccessCodeModal);
+  accessCodeConfirm.addEventListener("click", confirmAccessCode);
+  accessCodeModal.addEventListener("click", (e) => {
+    if (e.target.id === "access-code-modal") closeAccessCodeModal();
+  });
+  accessCodeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") confirmAccessCode(); });
 
   // Automatisch anmelden, wenn noch ein gültiges Token in dieser Sitzung liegt.
   if (token) { showApp(); } else { showLogin(false); }
